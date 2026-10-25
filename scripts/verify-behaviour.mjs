@@ -39,7 +39,8 @@ const raw = async (page) => (await import('node:zlib')).inflateSync ? null : nul
   await page.waitForTimeout(1500); const a = await page.screenshot({ type: 'jpeg', quality: 60 });
   await page.mouse.move(100, 270); await page.waitForTimeout(1500); const b = await page.screenshot({ type: 'jpeg', quality: 60 });
   const introRM = await page.evaluate(() => window.__dots.intro()), sweepRM = await page.evaluate(() => window.__dots.sweep());
-  rec('reduced motion: intro skipped (uIntro=1), no sweep, no console errors', errs.length === 0 && introRM === 1 && sweepRM < -5, `intro=${introRM} sweep=${sweepRM} errors=${errs.length}`);
+  await page.mouse.move(900, 100); await page.waitForTimeout(800); const yawRM = await page.evaluate(() => window.__dots.yaw());
+  rec('reduced motion: intro skipped (uIntro=1), no sweep, no head turn, no console errors', errs.length === 0 && introRM === 1 && sweepRM < -5 && yawRM === 0, `intro=${introRM} sweep=${sweepRM} yaw=${yawRM} errors=${errs.length}`);
   await ctx.close();
 }
 // 3b normal motion: the intro actually plays (uIntro < 1 shortly after ready)
@@ -48,14 +49,38 @@ const raw = async (page) => (await import('node:zlib')).inflateSync ? null : nul
   const i0 = await page.evaluate(() => window.__dots.intro()); await page.waitForTimeout(12000); const i1 = await page.evaluate(() => window.__dots.intro());
   rec('normal motion: intro plays then completes', i0 < 1 && i1 === 1, `uIntro ${i0.toFixed(3)} -> ${i1}`); await ctx.close();
 }
-// 4 cursor interaction (normal motion): moving the cursor changes the image (light + head turn)
-{
-  const { ctx, page } = await open('/?fixedres&clean'); await page.waitForFunction(() => window.__dots?.ready, null, { timeout: 60000 });
-  await page.waitForTimeout(9000);
-  await page.mouse.move(150, 270, { steps: 4 }); await page.waitForTimeout(2500); const L = await page.screenshot({ type: 'png' });
-  await page.mouse.move(810, 270, { steps: 4 }); await page.waitForTimeout(2500); const R = await page.screenshot({ type: 'png' });
-  const sharp = (await import('node:module')).createRequire(import.meta.url);
-  let changed = L.compare(R) !== 0; rec('cursor movement changes the rendering (light/head turn)', changed, `png bytes ${L.length}/${R.length}`);
+// 4 motion timeline, head follow, cursor light (needs pngjs)
+import { PNG } from 'pngjs';
+const lum = (buf) => { const png = PNG.sync.read(buf), { width: w, height: h, data } = png; const L = new Float32Array(w * h); for (let i = 0; i < w * h; i++) L[i] = 0.3 * data[i * 4] + 0.59 * data[i * 4 + 1] + 0.11 * data[i * 4 + 2]; return { w, h, L }; };
+const bbox = ({ w, h, L }, thr = 60) => { let x0 = w, x1 = -1, y0 = h, y1 = -1, n = 0; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (L[y * w + x] > thr) { n++; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } return n < 30 ? null : { w: x1 - x0 + 1, h: y1 - y0 + 1, n }; };
+const meanBox = ({ w, L }, x0, y0, x1, y1) => { let s = 0, c = 0; for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { s += L[y * w + x]; c++; } return s / c; };
+{ // 4a unfold: a ring grows into the bust over time (intro value + silhouette size per sample)
+  const ctx = await browser.newContext({ viewport: { width: 640, height: 360 } }); const page = await ctx.newPage();
+  await page.goto(base + '/?fixedres&clean'); await page.waitForFunction(() => window.__dots?.ready, null, { timeout: 60000 });
+  const samples = [];
+  for (let i = 0; i < 40; i++) { const iv = await page.evaluate(() => window.__dots.intro()); const bb = bbox(lum(await page.screenshot())); samples.push({ iv: +iv.toFixed(2), h: bb?.h ?? 0, w: bb?.w ?? 0 }); if (iv >= 1 && i > 6) break; }
+  const final = samples[samples.length - 1], early = samples.filter((s) => s.iv < 0.25 && s.h > 0), mid = samples.filter((s) => s.iv > 0.3 && s.iv < 0.9);
+  const grows = early.length > 0 && early[0].h < 0.6 * final.h && mid.length >= 2 && mid.every((s) => s.h > 0);
+  rec('unfold: ring -> bust is visible over time (silhouette grows, >=2 mid-flight samples)', grows && final.iv === 1, JSON.stringify(samples.map((s) => `${s.iv}:${s.h}`)));
+  await ctx.close();
+}
+{ // 4b head follows cursor softly (yaw/pitch uniforms sampled at ~25 Hz), light follows cursor
+  const { ctx, page } = await open('/?fixedres&clean'); await page.setViewportSize({ width: 640, height: 360 });
+  await page.waitForFunction(() => window.__dots?.intro?.() === 1, null, { timeout: 60000 }); await page.waitForTimeout(3500);
+  const trace = async (ms) => { const out = []; const t0 = Date.now(); while (Date.now() - t0 < ms) { out.push(await page.evaluate(() => [performance.now(), window.__dots.yaw()])); await page.waitForTimeout(40); } return out; };
+  const speed = (tr) => Math.max(...tr.slice(1).map(([t, y], i) => Math.abs(y - tr[i][1]) / ((t - tr[i][0]) / 1000)));   // rad/s from in-page timestamps (robust to slow software frames)
+  await page.mouse.move(600, 150); const tr1 = await trace(2600); const r = tr1.map((p) => p[1]); const fin = r[r.length - 1];
+  const maxStep = speed(tr1), over = Math.max(...r) / fin;
+  rec('head turns toward cursor (right): final yaw 0.25-0.45 rad', fin > 0.25 && fin < 0.45, `yaw=${fin.toFixed(3)}`);
+  rec('head follow is soft: speed <= 1.5 rad/s, no overshoot, visible lag', maxStep < 1.5 && over < 1.04 && r[2] < 0.5 * fin, `maxSpeed=${maxStep.toFixed(2)} rad/s overshoot=${over.toFixed(3)} early=${r[2].toFixed(3)}`);
+  await page.mouse.move(40, 150); const tr2 = await trace(2600); const l = tr2.map((p) => p[1]);
+  rec('swinging the cursor to the other side reverses the turn smoothly', l[l.length - 1] < -0.25 && speed(tr2) < 1.5, `yaw=${l[l.length - 1].toFixed(3)} maxSpeed=${speed(tr2).toFixed(2)} rad/s`);
+  // light pool: brightness of the lit region rises when the cursor is over it
+  const shot = async (fx, fy) => { await page.mouse.move(640 * fx, 360 * fy, { steps: 5 }); await page.waitForTimeout(2500); return lum(await page.screenshot()); };
+  const corner = await shot(0.02, 0.97), head = await shot(0.5, 0.18), chest = await shot(0.5, 0.7);
+  const hb = [230, 20, 360, 130], cb = [200, 200, 440, 330];
+  const headGain = meanBox(head, ...hb) / meanBox(corner, ...hb), chestGain = meanBox(chest, ...cb) / meanBox(corner, ...cb);
+  rec('cursor light pool: lit region >= 1.25x brighter (head and chest)', headGain >= 1.25 && chestGain >= 1.25, `head x${headGain.toFixed(2)} chest x${chestGain.toFixed(2)}`);
   await ctx.close();
 }
 // 5 touch

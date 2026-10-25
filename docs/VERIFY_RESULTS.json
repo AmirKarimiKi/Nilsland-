@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-25T16:19:14.234Z",
+  "date": "2026-10-25T16:50:21.168Z",
   "env": "headless Chromium, SwiftShader (software GL) - not GPU",
   "results": [
     {
@@ -13,19 +13,39 @@
       "detail": "PORTRAIT-ASSET FEHLT — public/assets/portrait-points.bin wur"
     },
     {
-      "name": "reduced motion: intro skipped (uIntro=1), no sweep, no console errors",
+      "name": "reduced motion: intro skipped (uIntro=1), no sweep, no head turn, no console errors",
       "ok": true,
-      "detail": "intro=1 sweep=-9 errors=0"
+      "detail": "intro=1 sweep=-9 yaw=0 errors=0"
     },
     {
       "name": "normal motion: intro plays then completes",
       "ok": true,
-      "detail": "uIntro 0.009 -> 1"
+      "detail": "uIntro 0.000 -> 1"
     },
     {
-      "name": "cursor movement changes the rendering (light/head turn)",
+      "name": "unfold: ring -> bust is visible over time (silhouette grows, >=2 mid-flight samples)",
       "ok": true,
-      "detail": "png bytes 687019/686933"
+      "detail": "[\"0:172\",\"0:171\",\"0.26:218\",\"0.39:230\",\"0.66:334\",\"0.98:324\",\"1:324\",\"1:324\"]"
+    },
+    {
+      "name": "head turns toward cursor (right): final yaw 0.25-0.45 rad",
+      "ok": true,
+      "detail": "yaw=0.367"
+    },
+    {
+      "name": "head follow is soft: speed <= 1.5 rad/s, no overshoot, visible lag",
+      "ok": true,
+      "detail": "maxSpeed=0.72 rad/s overshoot=1.000 early=0.057"
+    },
+    {
+      "name": "swinging the cursor to the other side reverses the turn smoothly",
+      "ok": true,
+      "detail": "yaw=-0.367 maxSpeed=0.97 rad/s"
+    },
+    {
+      "name": "cursor light pool: lit region >= 1.25x brighter (head and chest)",
+      "ok": true,
+      "detail": "head x1.48 chest x1.53"
     },
     {
       "name": "touch: tap is handled, mobile uses reduced dots",

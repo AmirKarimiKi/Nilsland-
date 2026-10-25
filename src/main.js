@@ -165,50 +165,83 @@ async function buildPhotoPreview() {
 }
 
 // ---------------------------------------------------------------- material
+// Motion model (all GPU side): (1) ring -> bust unfold, staggered top-down with a short swirl, played once;
+// (2) calm interactive state: head turns over the shoulders toward the cursor, cursor light + faint specular,
+// depth cue (nearer dots larger/brighter). No random per-dot motion.
 const material = new THREE.ShaderMaterial({
   transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
   uniforms: {
-    uIntro: { value: 0 }, uSweep: { value: -9 }, uGlint: { value: -9 },
+    uIntro: { value: 0 }, uSpin: { value: 0 }, uSweep: { value: -9 }, uGlint: { value: -9 },
     uLight: { value: new THREE.Vector3(0, 0, 2) }, uLightOn: { value: 0 },
+    uHead: { value: new THREE.Vector2(0, 0) }, uBody: { value: 0 },
+    uPivot: { value: new THREE.Vector3(0, 0, 0) }, uBounds: { value: new THREE.Vector2(-1.4, 1.4) },
     uRatio: { value: 1 }, uPointScale: { value: mobile ? 1.15 : 1 }
   },
   vertexShader: /* glsl */`
     attribute float aSeed; attribute float aKind;
-    uniform float uIntro, uSweep, uGlint, uRatio, uPointScale, uLightOn; uniform vec3 uLight;
+    uniform float uIntro, uSpin, uSweep, uGlint, uRatio, uPointScale, uLightOn, uBody;
+    uniform vec3 uLight, uPivot; uniform vec2 uHead, uBounds;
     varying float vBright; varying float vSeed; varying float vGlint;
+    vec3 yawRot(vec3 v, float a){ float c = cos(a), s = sin(a); return vec3(v.x * c + v.z * s, v.y, -v.x * s + v.z * c); }
+    vec3 pitchRot(vec3 v, float a){ float c = cos(a), s = sin(a); return vec3(v.x, v.y * c - v.z * s, v.y * s + v.z * c); }
     void main(){
-      vGlint = 0.; vSeed = aSeed;
-      // Unfold: every dot starts on a ring and eases to its place on the bust.
-      float th = aSeed * 6.2831853;
-      vec3 start = vec3(cos(th) * .46, sin(th) * .46, 0.);
-      float delay = aSeed * .54;
-      float t = smoothstep(delay, min(1., delay + .44), uIntro);
-      t = t * t * (3. - 2. * t);
-      vec3 pos = mix(start, position, t);
+      vSeed = aSeed; vGlint = 0.;
+      float h = clamp((position.y - uBounds.x) / (uBounds.y - uBounds.x), 0., 1.);
+
+      // (1) one-time unfold: a ring of dots releases top-down (head first) and swirls into the bust.
+      float th = aSeed * 6.2831853 + uSpin;
+      vec3 start = vec3(cos(th), sin(th), 0.) * .62;
+      float delay = .50 * (1. - h) + .10 * aSeed;
+      float te = clamp((uIntro - delay) / .40, 0., 1.);
+      float e = 1. - pow(1. - te, 3.);                                     // ease-out cubic
+      vec3 pos = mix(start, position, e);
+      float ang = (1. - e) * 1.25 * (1. - .5 * h);                           // swirl that unwinds to zero
+      float ca = cos(ang), sa = sin(ang);
+      pos.xy = vec2(pos.x * ca - pos.y * sa, pos.x * sa + pos.y * ca);
+      pos.xy *= 1. + .16 * sin(e * 3.14159);                                 // slight outward arc in flight
+      float flight = sin(e * 3.14159);                                       // 0 at ring and at rest
+
+      // (2) head turns over the shoulders: yaw/pitch about a neck pivot, body follows a fraction
+      vec3 nrm = normal;
+      float wHead = smoothstep(uPivot.y - .15, uPivot.y + .25, pos.y);
+      float yaw = mix(uBody, uHead.x, wHead);
+      vec3 q = pos - vec3(uPivot.x, 0., uPivot.z);
+      q = yawRot(q, yaw); nrm = yawRot(nrm, yaw);
+      vec3 qp = q - vec3(0., uPivot.y, 0.);
+      qp = mix(qp, pitchRot(qp, uHead.y), wHead); nrm = mix(nrm, pitchRot(nrm, uHead.y), wHead);
+      pos = qp + vec3(uPivot.x, uPivot.y, uPivot.z);
 
       vec4 world = modelMatrix * vec4(pos, 1.);
-      vec3 wn = normalize(mat3(modelMatrix) * normal);
-      // Cursor = a single soft point light in front of the bust.
-      vec3 toL = uLight - world.xyz;
-      float dist = length(toL);
-      float facing = .35 + .65 * max(0., dot(wn, toL / max(dist, .001)));
-      float lit = pow(max(0., 1. - dist * .52), 3.) * facing * uLightOn;
-      float rim = pow(1. - abs(wn.z), 2.);
-      float key = max(0., dot(wn, normalize(vec3(-.45, .65, .62))));   // faint fixed key light (spec: subtle key/rim/cursor accents)
-      // One soft light sweep after the unfold.
-      float sweep = exp(-pow((world.y + world.x * .18 - uSweep) * 3.2, 2.));
+      vec3 wn = normalize(mat3(modelMatrix) * nrm);
 
-      float base = .40;
+      // cursor = one soft point light in front of the bust (diffuse + a faint specular reflex)
+      vec3 toL = uLight - world.xyz;
+      float dist = length(toL); vec3 L = toL / max(dist, .001);
+      float facing = .22 + .78 * max(0., dot(wn, L));
+      float reach = pow(max(0., 1. - dist * .62), 2.0);
+      float lit = reach * facing * uLightOn;
+      float spec = pow(max(0., dot(reflect(-L, wn), vec3(0., 0., 1.))), 16.) * pow(max(0., 1. - dist * .55), 2.) * uLightOn;
+      float rim = pow(1. - abs(wn.z), 2.);
+      float key = max(0., dot(wn, normalize(vec3(-.45, .65, .62))));
+      float sweep = exp(-pow((world.y + world.x * .18 - uSweep) * 3.2, 2.));
+      float near = clamp(.5 + .5 * world.z / 1.2, 0., 1.);                   // depth cue: nearer dots larger/brighter
+
+      float base = .24;
       float size = 2.2 + aSeed * 2.6;
-      if (aKind > .5 && aKind < 1.5) { base = .78; size += .5; }          // spectacle rim: slightly denser/brighter
-      if (aKind > 1.5) {                                                // lens: very faint, a slow glint passes over it
+      float extra = 0.;
+      if (aKind > .5 && aKind < 1.5) { base = .70; size += .5; extra = spec * .5; }   // spectacle rim
+      if (aKind > 1.5) {                                                              // lens: faint, glint + cursor reflex
         float glint = exp(-pow((world.x - uGlint) * 5., 2.));
-        base = .10 + glint * .55; size = 2.0; vGlint = glint;
+        base = .10 + glint * .55; size = 2.0; extra = spec * 1.3 + lit * .7; vGlint = clamp(max(glint, spec * .9 + lit * .25), 0., 1.);
       }
-      vBright = min(1.15, (base + lit * .75 + rim * .10 + key * .16 + sweep * .55) * (.86 + aSeed * .28));
+      float b = (base + lit * 3.2 + spec * 1.3 + extra + rim * .10 + key * .16 + sweep * .55) * (.82 + aSeed * .34);
+      b *= (.70 + .50 * near);
+      b *= (.55 + .45 * smoothstep(0., .25, te)) * (1. + .6 * flight);
+      vBright = min(1.5, b);
       vec4 view = viewMatrix * world;
       gl_Position = projectionMatrix * view;
-      gl_PointSize = clamp((size + sweep * 1.0) * uRatio * uPointScale * 5. / -view.z, 1., 10. * max(1., uRatio));
+      float psz = (size * (.82 + .30 * near) * (1. + .30 * lit) + sweep * 1.0 + flight * .8) * uRatio * uPointScale * 5. / -view.z;
+      gl_PointSize = clamp(psz, 1., 10. * max(1., uRatio));
     }`,
   fragmentShader: /* glsl */`
     precision mediump float; varying float vBright; varying float vSeed; varying float vGlint;
@@ -217,21 +250,23 @@ const material = new THREE.ShaderMaterial({
       float a = exp(-r * r * 16.) * .88;            // soft gaussian sprite
       if (a < .018) discard;
       vec3 tint = mix(vec3(.74,.76,.79), vec3(.88,.90,.93), vSeed);
-      tint = mix(tint, vec3(.62,.74,.98), vGlint * .8);   // rare cool glint on the lenses only
+      tint = mix(tint, vec3(.62,.74,.98), vGlint * .8);   // cool reflex on the lenses only
       gl_FragColor = vec4(tint * vBright, a);
     }`
 });
 
 // ---------------------------------------------------------------- interaction
-const pointer = { x: 0, y: 0, seen: false };
+const pointer = { x: 0, y: 0, seen: false, active: false };
 const lightTarget = new THREE.Vector3(0, 0, 2);
 const ndc = new THREE.Vector3(), dirV = new THREE.Vector3();
 function onPointer(e) {
-  pointer.x = e.clientX / innerWidth * 2 - 1; pointer.y = 1 - e.clientY / innerHeight * 2;
+  pointer.x = THREE.MathUtils.clamp(e.clientX / innerWidth * 2 - 1, -1, 1); pointer.y = THREE.MathUtils.clamp(1 - e.clientY / innerHeight * 2, -1, 1);
+  pointer.active = true;
   if (!pointer.seen) { pointer.seen = true; el.hint.classList.add('gone'); }
 }
 addEventListener('pointermove', onPointer, { passive: true });
 addEventListener('pointerdown', onPointer, { passive: true });
+document.documentElement.addEventListener('pointerleave', () => { pointer.active = false; });   // cursor left the window: head eases back, light parks
 addEventListener('resize', () => { applyResolution(); fitCamera(); });
 applyResolution();
 renderer.domElement.addEventListener('webglcontextlost', (e) => {
@@ -245,31 +280,61 @@ renderer.domElement.addEventListener('webglcontextrestored', () => {
 // ---------------------------------------------------------------- main
 const fixedRes = params.has('fixedres'); let lastT = 0, dtSum = 0, dtN = 0;
 let cloud, noteText = '', begin = 0, frames = 0, lastFps = performance.now(), fps = 0, dotCount = 0, modeLabel = '';
-const INTRO = 2.4, SWEEP_AT = 2.6, SWEEP_LEN = 1.9;
+// Timeline (s): 0-HOLD ring is shown and slowly turns | HOLD-(HOLD+UNFOLD) staggered unfold | then one light sweep | then calm + interactive.
+const HOLD = 0.8, UNFOLD = 3.6, SWEEP_AT = HOLD + UNFOLD + 0.1, SWEEP_LEN = 1.9, LIVE_AT = HOLD + UNFOLD * 0.7;
+const smoothDamp = (cur, target, st, smoothTime, dt, maxSpeed = 1.4) => {   // critically damped follow, speed-limited: no jerks, soft lag
+  const om = 2 / smoothTime, x = om * dt, ex = 1 / (1 + x + .48 * x * x + .235 * x * x * x);
+  let ch = cur - target; const lim = maxSpeed * smoothTime; ch = THREE.MathUtils.clamp(ch, -lim, lim);
+  const tgt = cur - ch, tmp = (st.v + om * ch) * dt; st.v = (st.v - om * tmp) * ex;
+  let out = tgt + (ch + tmp) * ex; if ((target - cur > 0) === (out > target)) { out = target; st.v = 0; } return out;
+};
+const sYaw = { v: 0 }, sPitch = { v: 0 }, sPx = { v: 0 }, sPy = { v: 0 };
+let headYaw = 0, headPitch = 0, camX = 0, camY = 0, prevT = 0;
+const lightPark = new THREE.Vector3();
 
 function tick(t) {
+  const dtS = Math.min(0.1, Math.max(0.001, (t - (prevT || t - 16)) / 1000)); prevT = t;
   const elapsed = reducedMotion ? 99 : (t - begin) / 1000;
-  const u = material.uniforms;
-  u.uIntro.value = Math.min(1, Math.max(0, elapsed / INTRO));
+  const u = material.uniforms, inspect = params.has('yaw');
+  u.uIntro.value = reducedMotion ? 1 : Math.min(1, Math.max(0, (elapsed - HOLD) / UNFOLD));
+  u.uSpin.value = reducedMotion ? 0 : Math.min(elapsed, HOLD + UNFOLD) * 0.45;
   const sw = (elapsed - SWEEP_AT) / SWEEP_LEN;
   u.uSweep.value = reducedMotion ? -9 : (sw >= 0 && sw <= 1 ? 1.9 - sw * 3.8 : -9);   // single pass, then rest
-  const g = (elapsed - 6) % 11 / 1.6;                                              // glasses glint: brief, every ~11 s
-  u.uGlint.value = !reducedMotion && elapsed > 6 && g >= 0 && g <= 1 ? -0.9 + g * 1.8 : -9;
-  // Cursor -> world-space point light at z = 1.3
-  ndc.set(pointer.x, pointer.y, .5).unproject(camera); dirV.copy(ndc).sub(camera.position).normalize();
-  lightTarget.copy(camera.position).addScaledVector(dirV, (camera.position.z - 1.3) / -dirV.z);
-  u.uLight.value.lerp(lightTarget, .12);
-  u.uLightOn.value += ((pointer.seen ? 1 : 0) * Math.min(1, Math.max(0, (elapsed - 3.6) / 1)) - u.uLightOn.value) * .06;
-  if (params.has('yaw')) { cloud.rotation.y = THREE.MathUtils.degToRad(Number(params.get('yaw')) || 0); }   // inspection only: fixed turntable angle
-  else if (!reducedMotion) {
-    cloud.rotation.y += (THREE.MathUtils.clamp(pointer.x * .21, -.23, .23) - cloud.rotation.y) * .045;   // subtle turn toward the cursor
-    cloud.rotation.x += (THREE.MathUtils.clamp(-pointer.y * .09, -.09, .09) - cloud.rotation.x) * .045;
+  const g = (elapsed - 8) % 11 / 1.6;                                              // lens glint: brief, every ~11 s
+  u.uGlint.value = !reducedMotion && elapsed > 8 && g >= 0 && g <= 1 ? -0.9 + g * 1.8 : -9;
+
+  // calm interactive state, faded in once the unfold is mostly done
+  const live = reducedMotion ? 1 : THREE.MathUtils.smoothstep((elapsed - LIVE_AT) / 0.9, 0, 1);
+  const px = pointer.active ? pointer.x : 0, py = pointer.active ? pointer.y : 0;
+  if (!reducedMotion && !inspect) {
+    headYaw = smoothDamp(headYaw, px * 0.42 * live, sYaw, 0.40, dtS, 0.8);            // +-24 deg, soft lag (~0.4 s)
+    headPitch = smoothDamp(headPitch, -py * 0.13 * live, sPitch, 0.45, dtS, 0.8);
+    camX = smoothDamp(camX, px * 0.22 * live, sPx, 0.6, dtS, 1.0);               // slight parallax so the volume reads as 3D
+    camY = smoothDamp(camY, py * 0.09 * live, sPy, 0.6, dtS, 1.0);
   }
+  u.uHead.value.set(headYaw, headPitch); u.uBody.value = headYaw * 0.28;
+  camera.position.x = camX; camera.position.y = camY; camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+  cloud.rotation.y = inspect ? THREE.MathUtils.degToRad(Number(params.get('yaw')) || 0) : 0;
+
+  // cursor light on a plane in front of the bust; before the first cursor move it wanders slowly as a hint (not in reduced motion)
+  let intensity;
+  if (pointer.seen && pointer.active) {
+    ndc.set(pointer.x, pointer.y, .5).unproject(camera); dirV.copy(ndc).sub(camera.position).normalize();
+    lightTarget.copy(camera.position).addScaledVector(dirV, (camera.position.z - 0.95) / -dirV.z);
+    intensity = 1;
+  } else {
+    const k = reducedMotion ? 0 : elapsed;
+    lightTarget.set(Math.sin(k * .55) * .9, .35 + Math.cos(k * .41) * .75, .95);
+    intensity = pointer.seen ? .0 : .55;
+  }
+  u.uLight.value.lerp(lightTarget, 1 - Math.exp(-dtS * 9));
+  u.uLightOn.value += (intensity * live - u.uLightOn.value) * (1 - Math.exp(-dtS * 3));
+
   renderer.render(scene, camera);
   frames++;
   // Dynamic resolution: if the measured frame time stays above ~22 ms after warm-up, step the buffer down (never up -> no oscillation).
   const dt = t - lastT; lastT = t;
-  if (!fixedRes && elapsed > 4 && dt < 200) {
+  if (!fixedRes && elapsed > 5 && dt < 200) {
     dtSum += dt; dtN++;
     if (dtN >= 90) { if (dtSum / dtN > 22 && resScale > MIN_SCALE) { resScale = Math.max(MIN_SCALE, resScale * 0.85); applyResolution(); } dtSum = 0; dtN = 0; }
   }
@@ -303,14 +368,21 @@ async function start() {
   el.note.textContent = noteText;
   dotCount = result.count;
   setProgress(100);
+  // head-turn pivot (neck) and height range, in the normalised world units of the baked cloud
+  result.geometry.computeBoundingBox(); const bb = result.geometry.boundingBox;
+  material.uniforms.uBounds.value.set(bb.min.y, bb.max.y);
+  const m = result.meta;
+  if (m?.center && m?.extent) {            // portrait asset: neck axis measured on the photo (model x -0.05, z -0.03, collar top y 0.60 in model units)
+    const k = SCALE / m.extent; material.uniforms.uPivot.value.set((-0.05 - m.center[0]) * k, (0.60 - m.center[1]) * k, (-0.03 - m.center[2]) * k);
+  } else material.uniforms.uPivot.value.set(0, bb.min.y + (bb.max.y - bb.min.y) * 0.55, 0);
   cloud = new THREE.Points(result.geometry, material);
   cloud.frustumCulled = false;
   scene.add(cloud);
-  setTimeout(() => el.loader.classList.add('hidden'), reducedMotion ? 0 : 450);
+  setTimeout(() => el.loader.classList.add('hidden'), reducedMotion ? 0 : 150);
   el.panel.hidden = false;
   begin = performance.now();
-  el.replay.addEventListener('click', () => { begin = performance.now(); material.uniforms.uLightOn.value = 0; });
+  el.replay.addEventListener('click', () => { begin = performance.now(); material.uniforms.uLightOn.value = 0; headYaw = headPitch = 0; sYaw.v = sPitch.v = 0; });
   renderer.setAnimationLoop(tick);
-  window.__dots = { intro: () => material.uniforms.uIntro.value, sweep: () => material.uniforms.uSweep.value, count: dotCount, mode: modeLabel, ready: true, buffer: { ...buffer, css: [innerWidth, innerHeight], devicePixelRatio, maxDim } }; // used by the automated check
+  window.__dots = { intro: () => material.uniforms.uIntro.value, sweep: () => material.uniforms.uSweep.value, yaw: () => material.uniforms.uHead.value.x, pitch: () => material.uniforms.uHead.value.y, light: () => material.uniforms.uLight.value.toArray(), lightOn: () => material.uniforms.uLightOn.value, count: dotCount, mode: modeLabel, ready: true, buffer: { ...buffer, css: [innerWidth, innerHeight], devicePixelRatio, maxDim } }; // used by the automated check
 }
 start().catch((err) => fail(`FEHLER BEIM START — ${err.message || err}`));

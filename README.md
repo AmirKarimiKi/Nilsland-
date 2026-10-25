@@ -36,7 +36,7 @@ Prüfansichten: Front/45°/90° des Netzes `docs/clay-preview-front-45-90deg-inf
 - Kein Abgleich mit Originalartikel/-demo möglich (Domain nicht erreichbar).
 Neu erzeugen: `python3 tools/segment.py && python3 tools/build_bust.py && npm run integrate` (pip: numpy scipy opencv-python-headless scikit-image trimesh pillow fast-simplification). Ein Meshy-/Higgsfield-`bust.glb` kann unverändert per `npm run integrate` eingesetzt werden.
 
-**Animation:** Phase 1 Entfaltung (Ring → Büste, einmalig), Phase 2 ruhig + interaktiv (Kopfdrehung, Cursor-Licht, Parallaxe), siehe `docs/FINAL_REPORT.md`, Video `docs/demo-interaction.mp4`. · **Abschlussbericht:** `docs/FINAL_REPORT.md` · **Qualitätsprüfung mit Vergleichsbildern:** `docs/QUALITY_REVIEW.md` (fotoabgeleitete Näherung, geschätzte Teile gekennzeichnet).
+**Visuelle Korrektur / Vorher-Nachher:** `docs/FINAL_REPORT.md` (Abschnitt „Visuelle Korrektur“), Video `docs/before-after.mp4`. · **Animation:** Phase 1 Entfaltung (Ring → Büste, einmalig), Phase 2 ruhig + interaktiv (Kopfdrehung, Cursor-Licht, Parallaxe), siehe `docs/FINAL_REPORT.md`, Video `docs/demo-interaction.mp4`. · **Abschlussbericht:** `docs/FINAL_REPORT.md` · **Qualitätsprüfung mit Vergleichsbildern:** `docs/QUALITY_REVIEW.md` (fotoabgeleitete Näherung, geschätzte Teile gekennzeichnet).
 
 ## Befehle
 ```

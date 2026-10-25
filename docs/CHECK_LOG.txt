@@ -3,12 +3,14 @@
 WARN: head centre is -0.108 off the bbox centre in X (tilted or off-centre)
 == integrate
 WARN: head centre is -0.108 off the bbox centre in X (tilted or off-centre)
-Wrote 66000 dots (660000 bytes) to public/assets, extent 1.4868
+Poisson thinning: 186120 candidates -> 62040 points, min distance 0.00493
+Wrote 66000 dots (660000 bytes) to public/assets, extent 1.4869
 Bake check OK
 == check-bake
   points: 66000,
 Bake check OK
 == build
-✓ built in 2.84s
+✓ built in 2.46s
 == test:fixture
+Poisson thinning: 186120 candidates -> 62040 points, min distance 0.00597
 Wrote 66000 dots (660000 bytes) to public/assets/test, extent 1.8789

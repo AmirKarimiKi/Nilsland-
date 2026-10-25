@@ -83,6 +83,17 @@ const meanBox = ({ w, L }, x0, y0, x1, y1) => { let s = 0, c = 0; for (let y = y
   rec('cursor light pool: lit region >= 1.25x brighter (head and chest)', headGain >= 1.25 && chestGain >= 1.25, `head x${headGain.toFixed(2)} chest x${chestGain.toFixed(2)}`);
   await ctx.close();
 }
+// 4c loader ring = dot ring with the CSS ring's radius; dust drifts (and is frozen under reduced motion)
+{
+  const { ctx, page } = await open('/?fixedres&clean'); await page.waitForFunction(() => window.__scene, null, { timeout: 30000 });
+  const px = await page.evaluate(() => window.__scene.ringPx()); await page.waitForFunction(() => window.__dots?.ready, null, { timeout: 60000 });
+  const t0 = await page.evaluate(() => window.__scene.dustTime()); await page.waitForTimeout(2500); const t1 = await page.evaluate(() => window.__scene.dustTime());
+  rec('loader ring (WebGL dots) has the 66 px radius of the CSS ring', Math.abs(px - 66) < 2, `ring radius = ${px.toFixed(1)} px`);
+  rec('ambient dust drifts slowly (time advances)', t1 > t0 + 1, `dust time ${t0.toFixed(1)} -> ${t1.toFixed(1)}, ${await page.evaluate(() => window.__scene.dustCount)} dust dots`);
+  await ctx.close();
+  const rm = await open('/?fixedres&clean', { reducedMotion: 'reduce' }); await rm.page.waitForFunction(() => window.__dots?.ready, null, { timeout: 60000 }); await rm.page.waitForTimeout(1500);
+  rec('reduced motion: dust is frozen', (await rm.page.evaluate(() => window.__scene.dustTime())) === 0); await rm.ctx.close();
+}
 // 5 touch
 {
   const { ctx, page, errs } = await open('/?fixedres', { hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });

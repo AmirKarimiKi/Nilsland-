@@ -69,12 +69,37 @@ const v = new THREE.Vector3(), n = new THREE.Vector3();
 // The cut-off base of a bust is never visible; skip down-facing samples in the lowest 1.5% of the height.
 const mb = new THREE.Box3(); meshes.forEach(g => { g.computeBoundingBox(); mb.union(g.boundingBox); });
 const isCap = (p, nn) => nn.y < -0.85 && p.y < mb.min.y + (mb.max.y - mb.min.y) * 0.015;
-for (let i = 0; i < surfaceTarget; i++) {
+const CAND = Number(flag('candidates', 3)) * surfaceTarget;   // area-uniform candidates, thinned to an even (blue-noise) distribution below
+for (let i = 0; i < CAND; i++) {
   const r = rand() * sum, j = Math.max(0, cumulative.findIndex(x => r <= x));
   samplers[j].sample(v, n);
   if (isCap(v, n)) { i--; continue; }
   surf.push({ p: v.clone(), n: n.clone(), kind: 0 });
 }
+
+// Even spacing: greedy Poisson-disc thinning. The disc radius is searched so that about `surfaceTarget` points survive.
+// Plain random sampling clumps and leaves holes, which reads as noise; evenly spaced dots read as a fine surface.
+function poissonThin(points, want) {
+  const greedy = (r) => {
+    const cell = r, grid = new Map(), keep = [], key = (i, j, k) => (i * 73856093) ^ (j * 19349663) ^ (k * 83492791);
+    for (const q of points) {
+      const i = Math.floor(q.p.x / cell), j = Math.floor(q.p.y / cell), k = Math.floor(q.p.z / cell); let ok = true;
+      for (let a = -1; a <= 1 && ok; a++) for (let b = -1; b <= 1 && ok; b++) for (let c = -1; c <= 1 && ok; c++) {
+        const list = grid.get(key(i + a, j + b, k + c)); if (!list) continue;
+        for (const o of list) if (o.p.distanceToSquared(q.p) < r * r) { ok = false; break; }
+      }
+      if (ok) { keep.push(q); const kk = key(i, j, k); (grid.get(kk) ?? grid.set(kk, []).get(kk)).push(q); }
+    }
+    return keep;
+  };
+  const bb = new THREE.Box3(); points.forEach(q => bb.expandByPoint(q.p));
+  let lo = 0, hi = bb.getSize(new THREE.Vector3()).length() * 0.05;
+  for (let it = 0; it < 12; it++) { const mid = (lo + hi) / 2; if (greedy(mid).length >= want) lo = mid; else hi = mid; }
+  let kept = greedy(Math.max(lo, 1e-6));
+  for (let i = kept.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [kept[i], kept[j]] = [kept[j], kept[i]]; }
+  return { kept: kept.slice(0, want), radius: lo };
+}
+{ const { kept, radius } = poissonThin(surf, surfaceTarget); console.log(`Poisson thinning: ${surf.length} candidates -> ${kept.length} points, min distance ${radius.toFixed(5)}`); surf = kept; }
 
 // Bounds for the glasses heuristic come from the surface samples.
 const box = new THREE.Box3(); surf.forEach(s => box.expandByPoint(s.p));

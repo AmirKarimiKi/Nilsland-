@@ -57,19 +57,22 @@ renderer.setClearColor(0x060608);
 el.app.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
+const uRingR = { value: 0.34 };   // world radius of the loader ring = the CSS ring radius (66 px) seen through the camera
 const camera = new THREE.PerspectiveCamera(36, innerWidth / innerHeight, 0.1, 100);
 function fitCamera() {
   camera.aspect = innerWidth / innerHeight;
-  const half = 1.62, t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  const half = 1.62 / (Number(params.get('zoom')) || 1), t = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));   // ?zoom= is for close-up recordings only
   camera.position.set(0, 0, Math.max(half / t, half / (t * camera.aspect)) + 0.2); // fit height, or width on portrait screens
   camera.updateProjectionMatrix();
+  uRingR.value = 66 * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z / innerHeight;
 }
 fitCamera();
 
 // ---------------------------------------------------------------- loader UI
+let ringTarget = 0;
 function setProgress(p) {
   const v = Math.max(0, Math.min(100, Math.floor(p)));
-  el.arc.classList.remove('indeterminate');
+  ringTarget = v / 100; el.arc.classList.remove('indeterminate');
   el.arc.style.setProperty('--p', v);
   el.pct.textContent = `${v}%`;
   el.loader.setAttribute('aria-valuenow', v);
@@ -175,11 +178,11 @@ const material = new THREE.ShaderMaterial({
     uLight: { value: new THREE.Vector3(0, 0, 2) }, uLightOn: { value: 0 },
     uHead: { value: new THREE.Vector2(0, 0) }, uBody: { value: 0 },
     uPivot: { value: new THREE.Vector3(0, 0, 0) }, uBounds: { value: new THREE.Vector2(-1.4, 1.4) },
-    uRatio: { value: 1 }, uPointScale: { value: mobile ? 1.15 : 1 }
+    uRatio: { value: 1 }, uPointScale: { value: mobile ? 1.15 : 1 }, uRingR
   },
   vertexShader: /* glsl */`
     attribute float aSeed; attribute float aKind;
-    uniform float uIntro, uSpin, uSweep, uGlint, uRatio, uPointScale, uLightOn, uBody;
+    uniform float uIntro, uSpin, uSweep, uGlint, uRatio, uPointScale, uLightOn, uBody, uRingR;
     uniform vec3 uLight, uPivot; uniform vec2 uHead, uBounds;
     varying float vBright; varying float vSeed; varying float vGlint;
     vec3 yawRot(vec3 v, float a){ float c = cos(a), s = sin(a); return vec3(v.x * c + v.z * s, v.y, -v.x * s + v.z * c); }
@@ -190,7 +193,7 @@ const material = new THREE.ShaderMaterial({
 
       // (1) one-time unfold: a ring of dots releases top-down (head first) and swirls into the bust.
       float th = aSeed * 6.2831853 + uSpin;
-      vec3 start = vec3(cos(th), sin(th), 0.) * .62;
+      vec3 start = vec3(cos(th), sin(th), 0.) * (uRingR + (fract(aSeed * 7.31) - .5) * .02);
       float delay = .50 * (1. - h) + .10 * aSeed;
       float te = clamp((uIntro - delay) / .40, 0., 1.);
       float e = 1. - pow(1. - te, 3.);                                     // ease-out cubic
@@ -221,26 +224,30 @@ const material = new THREE.ShaderMaterial({
       float reach = pow(max(0., 1. - dist * .62), 2.0);
       float lit = reach * facing * uLightOn;
       float spec = pow(max(0., dot(reflect(-L, wn), vec3(0., 0., 1.))), 16.) * pow(max(0., 1. - dist * .55), 2.) * uLightOn;
-      float rim = pow(1. - abs(wn.z), 2.);
+      vec3 V = normalize(cameraPosition - world.xyz);
+      float fv = dot(wn, V);
+      float rim = pow(1. - abs(fv), 2.2);
+      float vis = mix(.10, 1., smoothstep(-.10, .30, fv));                   // surfaces turned away dim out: no see-through shell, the volume reads
+      float hemi = .88 + .12 * wn.y;                                          // very soft top-down gradient
       float key = max(0., dot(wn, normalize(vec3(-.45, .65, .62))));
       float sweep = exp(-pow((world.y + world.x * .18 - uSweep) * 3.2, 2.));
       float near = clamp(.5 + .5 * world.z / 1.2, 0., 1.);                   // depth cue: nearer dots larger/brighter
 
       float base = .24;
-      float size = 2.2 + aSeed * 2.6;
+      float size = 1.8 + aSeed * aSeed * 3.6;                                  // many fine dots, few large ones
       float extra = 0.;
-      if (aKind > .5 && aKind < 1.5) { base = .70; size += .5; extra = spec * .5; }   // spectacle rim
+      if (aKind > .5 && aKind < 1.5) { base = .56; size += .25; extra = spec * .5; }   // spectacle rim
       if (aKind > 1.5) {                                                              // lens: faint, glint + cursor reflex
         float glint = exp(-pow((world.x - uGlint) * 5., 2.));
         base = .10 + glint * .55; size = 2.0; extra = spec * 1.3 + lit * .7; vGlint = clamp(max(glint, spec * .9 + lit * .25), 0., 1.);
       }
-      float b = (base + lit * 3.2 + spec * 1.3 + extra + rim * .10 + key * .16 + sweep * .55) * (.82 + aSeed * .34);
-      b *= (.70 + .50 * near);
-      b *= (.55 + .45 * smoothstep(0., .25, te)) * (1. + .6 * flight);
+      float b = (base + lit * 3.2 + spec * 1.3 + extra + rim * .20 + key * .12 + sweep * .55) * (.82 + aSeed * .34);
+      b *= (.70 + .50 * near) * vis * hemi;
+      b *= mix(.05, 1., smoothstep(0., .28, te)) * (1. + .6 * flight);
       vBright = min(1.5, b);
       vec4 view = viewMatrix * world;
       gl_Position = projectionMatrix * view;
-      float psz = (size * (.82 + .30 * near) * (1. + .30 * lit) + sweep * 1.0 + flight * .8) * uRatio * uPointScale * 5. / -view.z;
+      float psz = (size * (.82 + .30 * near) * (.72 + .28 * vis) * (1. + .30 * lit) + sweep * 1.0 + flight * .8) * uRatio * uPointScale * 5. / -view.z;
       gl_PointSize = clamp(psz, 1., 10. * max(1., uRatio));
     }`,
   fragmentShader: /* glsl */`
@@ -254,6 +261,54 @@ const material = new THREE.ShaderMaterial({
       gl_FragColor = vec4(tint * vBright, a);
     }`
 });
+
+// ---------------------------------------------------------------- loader ring (dots, driven by real bytes) + drifting dust
+const softPoint = /* glsl */`precision mediump float; varying float vB;
+  void main(){ float r = length(gl_PointCoord - .5); float a = exp(-r * r * 16.) * .88; if (a < .018) discard; gl_FragColor = vec4(vec3(.80,.82,.86) * vB, a); }`;
+const RING_N = 720, ringGeo = new THREE.BufferGeometry();
+ringGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(RING_N * 3), 3));
+ringGeo.setAttribute('aAng', new THREE.BufferAttribute(Float32Array.from({ length: RING_N }, (_, i) => i / RING_N), 1));
+const ringMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  uniforms: { uR: uRingR, uProg: { value: 0 }, uRatio: material.uniforms.uRatio, uAlpha: { value: 1 } },
+  vertexShader: /* glsl */`attribute float aAng; uniform float uR, uProg, uRatio, uAlpha; varying float vB;
+    void main(){ float a = aAng * 6.2831853 - 1.5707963; vec3 p = vec3(cos(a), -sin(a), 0.) * uR;
+      vB = (.14 + .86 * smoothstep(0., .02, uProg - aAng)) * uAlpha;
+      vec4 view = modelViewMatrix * vec4(p, 1.); gl_Position = projectionMatrix * view;
+      gl_PointSize = clamp(3.4 * uRatio * 5. / -view.z, 1.5, 8.); }`,
+  fragmentShader: softPoint
+});
+const ring = new THREE.Points(ringGeo, ringMat); ring.frustumCulled = false; scene.add(ring);
+
+const DUST_N = mobile ? 380 : 900, dustPos = new Float32Array(DUST_N * 3), dustSeed = new Float32Array(DUST_N);
+{ let q = 11; const r = () => ((q = Math.imul(q ^ (q >>> 15), 2246822507) + 0x9E3779B9 | 0), (q >>> 0) / 4294967296);
+  for (let i = 0; i < DUST_N; i++) { dustPos.set([(r() - .5) * 7.2, (r() - .5) * 4.4, -2.4 + r() * 3.4], i * 3); dustSeed[i] = r(); } }
+const dustGeo = new THREE.BufferGeometry();
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3)); dustGeo.setAttribute('aSeed', new THREE.BufferAttribute(dustSeed, 1));
+const dustMat = new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  uniforms: { uTime: { value: 0 }, uDust: { value: 0 }, uRatio: material.uniforms.uRatio },
+  vertexShader: /* glsl */`attribute float aSeed; uniform float uTime, uRatio, uDust; varying float vB;
+    void main(){ vec3 p = position + vec3(sin(uTime * (.05 + .04 * aSeed) + aSeed * 40.), cos(uTime * (.04 + .03 * aSeed) + aSeed * 17.), sin(uTime * .045 + aSeed * 9.)) * .16;
+      float near = clamp(.5 + .5 * p.z / 1.4, 0., 1.);
+      vB = (.07 + .12 * aSeed * aSeed) * (.55 + .9 * near) * uDust;
+      vec4 view = modelViewMatrix * vec4(p, 1.); gl_Position = projectionMatrix * view;
+      gl_PointSize = clamp((1.3 + 2.2 * aSeed * aSeed) * (.7 + .6 * near) * uRatio * 5. / -view.z, 1., 6. * max(1., uRatio)); }`,
+  fragmentShader: softPoint
+});
+const dust = new THREE.Points(dustGeo, dustMat); dust.frustumCulled = false; scene.add(dust);
+let ringShown = 0;
+function ambient(t, elapsed, dtS) {                         // ring progress + dust drift: shared by the pre-load loop and the main loop
+  ringShown += (ringTarget - ringShown) * (1 - Math.exp(-dtS * 9)); if (ringTarget >= 1 && ringShown > .995) ringShown = 1;
+  ringMat.uniforms.uProg.value = ringShown * 1.0005;
+  ringMat.uniforms.uAlpha.value = 1 - THREE.MathUtils.smoothstep(material.uniforms.uIntro.value, 0.02, 0.2);
+  dustMat.uniforms.uTime.value = reducedMotion ? 0 : t / 1000;
+  dustMat.uniforms.uDust.value = Math.min(1, dustMat.uniforms.uDust.value + dtS / 2.5);
+}
+let preT = 0;
+function preTick(t) { const dtS = Math.min(0.1, Math.max(0.001, (t - (preT || t - 16)) / 1000)); preT = t; material.uniforms.uSpin.value = reducedMotion ? 0 : t / 1000 * 0.45; ambient(t, 0, dtS); renderer.render(scene, camera); }
+renderer.setAnimationLoop(preTick);
+window.__scene = { ringPx: () => Math.abs(new THREE.Vector3(uRingR.value, 0, 0).project(camera).x) * innerWidth / 2, dustCount: DUST_N, dustTime: () => dustMat.uniforms.uTime.value };   // inspection hooks for the automated checks
 
 // ---------------------------------------------------------------- interaction
 const pointer = { x: 0, y: 0, seen: false, active: false };
@@ -288,6 +343,7 @@ const smoothDamp = (cur, target, st, smoothTime, dt, maxSpeed = 1.4) => {   // c
   const tgt = cur - ch, tmp = (st.v + om * ch) * dt; st.v = (st.v - om * tmp) * ex;
   let out = tgt + (ch + tmp) * ex; if ((target - cur > 0) === (out > target)) { out = target; st.v = 0; } return out;
 };
+const focus = (params.get('focus') || '0,0').split(',').map(Number);   // ?focus=x,y (world units) with ?zoom= for close-ups
 const sYaw = { v: 0 }, sPitch = { v: 0 }, sPx = { v: 0 }, sPy = { v: 0 };
 let headYaw = 0, headPitch = 0, camX = 0, camY = 0, prevT = 0;
 const lightPark = new THREE.Vector3();
@@ -296,6 +352,7 @@ function tick(t) {
   const dtS = Math.min(0.1, Math.max(0.001, (t - (prevT || t - 16)) / 1000)); prevT = t;
   const elapsed = reducedMotion ? 99 : (t - begin) / 1000;
   const u = material.uniforms, inspect = params.has('yaw');
+  ambient(t, elapsed, dtS);
   u.uIntro.value = reducedMotion ? 1 : Math.min(1, Math.max(0, (elapsed - HOLD) / UNFOLD));
   u.uSpin.value = reducedMotion ? 0 : Math.min(elapsed, HOLD + UNFOLD) * 0.45;
   const sw = (elapsed - SWEEP_AT) / SWEEP_LEN;
@@ -307,13 +364,13 @@ function tick(t) {
   const live = reducedMotion ? 1 : THREE.MathUtils.smoothstep((elapsed - LIVE_AT) / 0.9, 0, 1);
   const px = pointer.active ? pointer.x : 0, py = pointer.active ? pointer.y : 0;
   if (!reducedMotion && !inspect) {
-    headYaw = smoothDamp(headYaw, px * 0.42 * live, sYaw, 0.40, dtS, 0.8);            // +-24 deg, soft lag (~0.4 s)
+    headYaw = smoothDamp(headYaw, px * 0.42 * live, sYaw, 0.50, dtS, 0.65);            // +-24 deg, soft lag (~0.4 s)
     headPitch = smoothDamp(headPitch, -py * 0.13 * live, sPitch, 0.45, dtS, 0.8);
     camX = smoothDamp(camX, px * 0.22 * live, sPx, 0.6, dtS, 1.0);               // slight parallax so the volume reads as 3D
     camY = smoothDamp(camY, py * 0.09 * live, sPy, 0.6, dtS, 1.0);
   }
   u.uHead.value.set(headYaw, headPitch); u.uBody.value = headYaw * 0.28;
-  camera.position.x = camX; camera.position.y = camY; camera.lookAt(0, 0, 0); camera.updateMatrixWorld();
+  camera.position.x = camX + focus[0]; camera.position.y = camY + focus[1]; camera.lookAt(focus[0], focus[1], 0); camera.updateMatrixWorld();
   cloud.rotation.y = inspect ? THREE.MathUtils.degToRad(Number(params.get('yaw')) || 0) : 0;
 
   // cursor light on a plane in front of the bust; before the first cursor move it wanders slowly as a hint (not in reduced motion)
@@ -368,6 +425,7 @@ async function start() {
   el.note.textContent = noteText;
   dotCount = result.count;
   setProgress(100);
+  for (let w = 0; w < 40 && ringShown < 0.99 && !reducedMotion; w++) await new Promise((res) => setTimeout(res, 50));   // let the ring finish filling (max 2 s)
   // head-turn pivot (neck) and height range, in the normalised world units of the baked cloud
   result.geometry.computeBoundingBox(); const bb = result.geometry.boundingBox;
   material.uniforms.uBounds.value.set(bb.min.y, bb.max.y);
@@ -379,7 +437,7 @@ async function start() {
   cloud.frustumCulled = false;
   scene.add(cloud);
   setTimeout(() => el.loader.classList.add('hidden'), reducedMotion ? 0 : 150);
-  el.panel.hidden = false;
+  el.panel.hidden = false; document.documentElement.classList.add('live');
   begin = performance.now();
   el.replay.addEventListener('click', () => { begin = performance.now(); material.uniforms.uLightOn.value = 0; headYaw = headPitch = 0; sYaw.v = sPitch.v = 0; });
   renderer.setAnimationLoop(tick);

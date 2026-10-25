@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-25T16:50:21.168Z",
+  "date": "2026-10-25T17:02:59.439Z",
   "env": "headless Chromium, SwiftShader (software GL) - not GPU",
   "results": [
     {
@@ -25,7 +25,7 @@
     {
       "name": "unfold: ring -> bust is visible over time (silhouette grows, >=2 mid-flight samples)",
       "ok": true,
-      "detail": "[\"0:172\",\"0:171\",\"0.26:218\",\"0.39:230\",\"0.66:334\",\"0.98:324\",\"1:324\",\"1:324\"]"
+      "detail": "[\"0:152\",\"0:133\",\"0.16:181\",\"0.52:281\",\"0.78:319\",\"0.99:322\",\"1:322\",\"1:323\"]"
     },
     {
       "name": "head turns toward cursor (right): final yaw 0.25-0.45 rad",
@@ -35,17 +35,32 @@
     {
       "name": "head follow is soft: speed <= 1.5 rad/s, no overshoot, visible lag",
       "ok": true,
-      "detail": "maxSpeed=0.72 rad/s overshoot=1.000 early=0.057"
+      "detail": "maxSpeed=1.21 rad/s overshoot=1.000 early=0.056"
     },
     {
       "name": "swinging the cursor to the other side reverses the turn smoothly",
       "ok": true,
-      "detail": "yaw=-0.367 maxSpeed=0.97 rad/s"
+      "detail": "yaw=-0.367 maxSpeed=1.36 rad/s"
     },
     {
       "name": "cursor light pool: lit region >= 1.25x brighter (head and chest)",
       "ok": true,
-      "detail": "head x1.48 chest x1.53"
+      "detail": "head x1.66 chest x1.65"
+    },
+    {
+      "name": "loader ring (WebGL dots) has the 66 px radius of the CSS ring",
+      "ok": true,
+      "detail": "ring radius = 66.0 px"
+    },
+    {
+      "name": "ambient dust drifts slowly (time advances)",
+      "ok": true,
+      "detail": "dust time 0.7 -> 3.2, 900 dust dots"
+    },
+    {
+      "name": "reduced motion: dust is frozen",
+      "ok": true,
+      "detail": ""
     },
     {
       "name": "touch: tap is handled, mobile uses reduced dots",

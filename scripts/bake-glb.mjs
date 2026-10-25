@@ -85,10 +85,12 @@ if (withGlasses) {
   // Defaults measured on reference-photo.jpg (round panto frames), as fractions of the head+shoulders bbox of the photo framing:
   // eye line 0.36 of bbox height below the top, lens radius 0.10 of bbox width, centre spacing 1.8 x lens radius. Verify/tune with --glasses.
   // Calibration file (model units) written after matching the glasses to the photo; --glasses overrides it.
-  let cfg = ''; try { const j = JSON.parse((await fs.readFile('assets-src/glasses.json', 'utf8'))); cfg = [j.cx, j.cy, j.lensR, j.spacing, j.dz].join(','); } catch { /* optional */ }
-  const [cxA, cyA, lensRA, spacingA, dzA] = (flag('glasses', cfg) || '').split(',').map(Number);
+  let cfg = ''; try { const j = JSON.parse((await fs.readFile('assets-src/glasses.json', 'utf8'))); cfg = [j.cx, j.cy, j.lensR, j.spacing, j.dz, j.tiltDeg ?? 0].join(','); } catch { /* optional */ }
+  const [cxA, cyA, lensRA, spacingA, dzA, tiltA] = (flag('glasses', cfg) || '').split(',').map(Number);
+  const tilt = THREE.MathUtils.degToRad(Number.isFinite(tiltA) ? tiltA : 0);   // + = right lens higher (counter-clockwise seen from the front)
   const cx = Number.isFinite(cxA) ? cxA : centre0.x;
   const cy = Number.isFinite(cyA) ? cyA : box.max.y - size.y * 0.36;
+  const R = (x, y) => { const dx = x - cx, dy = y - cy, c = Math.cos(tilt), sn = Math.sin(tilt); return [cx + dx * c - dy * sn, cy + dx * sn + dy * c]; };
   const lensR = Number.isFinite(lensRA) ? lensRA : size.x * 0.10;
   const spacing = Number.isFinite(spacingA) ? spacingA : lensR * 1.8;   // centre-to-centre
   const dz = Number.isFinite(dzA) ? dzA : size.z * 0.03;                  // frame stands off the face
@@ -105,10 +107,10 @@ if (withGlasses) {
   const curves = [];
   for (const side of [-1, 1]) {
     const lx = cx + side * spacing / 2;
-    curves.push({ lx, pts: Array.from({ length: 256 }, (_, k) => { const t = k / 256 * Math.PI * 2; return new THREE.Vector3(lx + Math.cos(t) * lensR, cy + Math.sin(t) * lensR, zAt(lx + Math.cos(t) * lensR, cy + Math.sin(t) * lensR)); }) });
+    curves.push({ lx, pts: Array.from({ length: 256 }, (_, k) => { const t = k / 256 * Math.PI * 2; const [qx, qy] = R(lx + Math.cos(t) * lensR, cy + Math.sin(t) * lensR); return new THREE.Vector3(qx, qy, zAt(qx, qy)); }) });
   }
   // Bridge arc and temple arms.
-  const bridge = Array.from({ length: 24 }, (_, k) => { const t = k / 23, x = cx - spacing / 2 + lensR + t * (spacing - 2 * lensR); return new THREE.Vector3(x, cy + lensR * 0.28 + Math.sin(t * Math.PI) * lensR * 0.12, zAt(x, cy + lensR * 0.28)); });
+  const bridge = Array.from({ length: 24 }, (_, k) => { const t = k / 23, x = cx - spacing / 2 + lensR + t * (spacing - 2 * lensR); const [qx, qy] = R(x, cy + lensR * 0.28 + Math.sin(t * Math.PI) * lensR * 0.12); return new THREE.Vector3(qx, qy, zAt(qx, qy)); });
   // Temple arms run from the lens edge back along the head surface (side surface x at each depth is read from the sampled points).
   const band = surf.filter(q => Math.abs(q.p.y - cy) < lensR * 0.35);
   const sideX = (side, z) => { let best = 0; for (const q of band) { const dx = (q.p.x - cx) * side; if (dx > best && Math.abs(q.p.z - z) < size.z * 0.02) best = dx; } return best; };
@@ -119,7 +121,7 @@ if (withGlasses) {
       const t = k / 47, z = zFront + (zBack - zFront) * t, sx = sideX(side, z);
       const xs = sx > 0 ? Math.min(sx + dz * 0.5, Math.max(x0, sx + dz * 0.5)) : x0;
       const x = x0 + (xs - x0) * Math.min(1, t * 4);   // blend from the lens corner to the head side
-      pts.push(new THREE.Vector3(cx + side * Math.max(x, Math.min(x0, xs)), cy + lensR * 0.55 - t * lensR * 0.08, z));
+      const [qx, qy] = R(cx + side * Math.max(x, Math.min(x0, xs)), cy + lensR * 0.55 - t * lensR * 0.08); pts.push(new THREE.Vector3(qx, qy, z));
     }
     return pts;
   });
@@ -144,9 +146,9 @@ if (withGlasses) {
   // Lens points: sparse, recessed slightly behind the rim, used only for shimmer.
   for (let i = 0; i < lensBudget; i++) {
     const cu = curves[i % 2], ang = rand() * Math.PI * 2, rad = Math.sqrt(rand()) * lensR * 0.93;
-    lens.push({ p: new THREE.Vector3(cu.lx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad, zAt(cu.lx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad) - dz * 0.35), n: new THREE.Vector3(0, 0, 1), kind: 2 });
+    const [qx, qy] = R(cu.lx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad); lens.push({ p: new THREE.Vector3(qx, qy, zAt(qx, qy) - dz * 0.35), n: new THREE.Vector3(0, 0, 1), kind: 2 });
   }
-  console.log(`Glasses: centre (${cx.toFixed(3)}, ${cy.toFixed(3)}), lensR ${lensR.toFixed(3)}, spacing ${spacing.toFixed(3)}, faceZ ${faceZ.toFixed(3)}; removed ${removed} native points`);
+  console.log(`Glasses: centre (${cx.toFixed(3)}, ${cy.toFixed(3)}), lensR ${lensR.toFixed(3)}, spacing ${spacing.toFixed(3)}, tilt ${(tilt * 180 / Math.PI).toFixed(2)} deg, faceZ ${faceZ.toFixed(3)}; removed ${removed} native points`);
 }
 // Top up surface points that were removed so the total stays exactly COUNT.
 while (surf.length + rim.length + lens.length < COUNT) {

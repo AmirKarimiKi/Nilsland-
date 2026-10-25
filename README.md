@@ -32,7 +32,7 @@ Prüfansichten: Front/45°/90° des Netzes `docs/clay-preview-front-45-90deg-inf
 - Profil und Rückseite sind Annahmen; die Büste ist kein belegt originalgetreues Abbild der Person. Wiedererkennbar sind vor allem Kopf-/Schulterumriss, Haarmasse, Kragen und Brillenmaß.
 - Der 90°-Blick wirkt noch gedrungen (Kopf auf kurzem Kragen); Kiefer-/Kragenübergang und Schulterneigung sind vereinfacht.
 - Haarstruktur nur als flaches Relief; Scheitel-Lage ist aus dem Foto geschätzt.
-- Brille: runde Fassung mit Fotomaßen; bei 45°/90° steht sie etwas vor dem flach geformten Gesicht.
+- Brille: runde Fassung, am Foto per Kreissuche vermessen (inkl. −1,7° Neigung) und an der Kopfoberfläche geführt.
 - Kein Abgleich mit Originalartikel/-demo möglich (Domain nicht erreichbar).
 Neu erzeugen: `python3 tools/segment.py && python3 tools/build_bust.py && npm run integrate` (pip: numpy scipy opencv-python-headless scikit-image trimesh pillow fast-simplification). Ein Meshy-/Higgsfield-`bust.glb` kann unverändert per `npm run integrate` eingesetzt werden.
 

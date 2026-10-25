@@ -24,7 +24,7 @@ head = cv2.morphologyEx(head.astype(np.uint8), cv2.MORPH_OPEN, np.ones((9, 9), n
 n, lab, st, _ = cv2.connectedComponentsWithStats(head); head = lab == (1 + np.argmax(st[1:, cv2.CC_STAT_AREA]))
 head = cv2.morphologyEx(head.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8)).astype(bool)
 head[860:, :640] = False; head[860:, 1290:] = False   # jaw rows: drop the bright-background tip beside the right collar (head is <= ~330 px from the axis there)
-body = cv2.dilate(dark.astype(np.uint8), np.ones((7, 7), np.uint8)).astype(bool); body[:800] = False
+body = person.copy(); body[:840] = False   # collar top ~y840; contour from the person mask (a dark-pixel sliver at the right collar edge used to shift the axis -> spike)
 
 def extents(mask, y_from, y_to):
     xl = np.zeros(H); xr = np.zeros(H); ok = np.zeros(H, bool)
@@ -53,16 +53,16 @@ zf = zf * dome; zb = zb * dome
 zcH = (zf + zb) / 2; hdH = (zf - zb) / 2
 
 # ---------------------------------------------------------------- collar + shoulders contour
-hwB, cxB = extents(body, 800, H)
-hwP, cxP = extents(person, 800, H)
+hwB, cxB = extents(body, 840, H)
+hwP, cxP = extents(person, 840, H)
 hwB = np.minimum(hwB, hwP + 2); cxB = np.where(hwB > 0, cxB, cxP)   # never wider than the photo silhouette
 hwB = gaussian_filter1d(hwB, 10); cxB = gaussian_filter1d(cxB, 30)
-_s = np.clip((yy - 800) / 90.0, 0, 1); hwB = hwB * (0.80 + 0.20 * np.sqrt(1 - (1 - _s) ** 2))   # rounded collar top
+_s = np.clip((yy - 840) / 90.0, 0, 1); hwB = hwB * (0.80 + 0.20 * np.sqrt(1 - (1 - _s) ** 2))   # rounded collar top
 rollB = 1 + 0.10 * np.exp(-((yy - 880) / 45.0) ** 2)     # turtleneck roll
 bfy = [800, 1000, 1060, 1150, 1300, 1500]; bfz = [200, 215, 245, 255, 300, 330]
 bby = [800, 1040, 1150, 1300, 1500]; bbz = [-270, -275, -280, -300, -330]
 zfB = np.interp(yy, bfy, bfz); zbB = np.interp(yy, bby, bbz)
-zcB = (zfB + zbB) / 2; hdB = (zfB - zbB) / 2 * rollB * (0.80 + 0.20 * np.sqrt(1 - (1 - _s) ** 2))
+zcB = (zfB + zbB) / 2; hdB = (zfB - zbB) / 2 * rollB * (0.80 + 0.20 * np.sqrt(1 - (1 - _s) ** 2)); hwB = hwB * (1 + 0.5 * (rollB - 1))   # roll ring: +10% depth, +5% width at the collar top (after the silhouette clamp)
 nB = ramp(800, 1300, 2.3, 3.0)
 
 # ---------------------------------------------------------------- hair features (px, 2000x1500 working scale)
@@ -89,7 +89,7 @@ for i, y in enumerate(yrows):
             part = -6.0 * np.exp(-((0.57 * (X - 960) - 0.82 * (y - 200) - 20) ** 2) / (2 * 9.0 ** 2)) * np.clip((Y_HAIRLINE - y + 40) / 60, 0, 1)
             fh = fh + hw_map * (relief + part) / hwH[yi]
         f = fh.astype(np.float32)
-    if hwB[yi] > 3 and 800 <= y <= H - 1:
+    if hwB[yi] > 3 and 840 <= y <= H - 1:
         fb = sup((X - cxB[yi]) / hwB[yi], (Z - zcB[yi]) / hdB[yi], nB[yi]); f = np.maximum(f, fb.astype(np.float32))
     F[i] = f
 F = gaussian_filter(F, 0.7)

@@ -1,8 +1,9 @@
 {
-  "_note": "Measured by overlaying the baked rim on assets-src/reference-photo.jpg (2000x1500 working scale): lens centres ~(802,586) and (1102,580), rim centre-line radius ~125 px. Model units = px/1000: x=(px-1000)/1000, y=(1500-py)/1000.",
-  "cx": -0.048,
-  "cy": 0.917,
-  "lensR": 0.12,
-  "spacing": 0.3,
-  "dz": 0.012
+  "_note": "Fitted to assets-src/reference-photo.jpg by circle search on the lens rims (2000x1500 working scale): lens centres (816,564) and (1084,556), centre-line radius ~108 px, tilt -1.7 deg (right lens higher). Model units = px/1000: x=(px-1000)/1000, y=(1500-py)/1000. tiltDeg>0 = right lens higher.",
+  "cx": -0.05,
+  "cy": 0.94,
+  "lensR": 0.108,
+  "spacing": 0.268,
+  "dz": 0.012,
+  "tiltDeg": 1.7
 }

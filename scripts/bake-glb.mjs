@@ -1,7 +1,7 @@
 // Bakes a GLB mesh into one quantized point asset (10 bytes per point).
 //
 //   npm run bake -- path/to/bust.glb [--out-dir public/assets] [--label "text"]
-//                   [--count 66000] [--no-glasses] [--glasses cx,cy,lensR,spacing,dz] [--seed 1]
+//                   [--rotate rxDeg,ryDeg,rzDeg] [--count 66000] [--no-glasses] [--glasses cx,cy,lensR,spacing,dz] [--seed 1]
 //
 // Record layout (little endian), 10 bytes:  x,y,z uint16 | nx,ny,nz int8 | kind uint8
 // kind: 0 = surface, 1 = spectacle rim (curve points), 2 = spectacle lens (sparse shimmer points)
@@ -17,7 +17,7 @@ import path from 'node:path';
 
 const argv = process.argv.slice(2);
 const flag = (name, fallback) => { const i = argv.indexOf(`--${name}`); return i < 0 ? fallback : argv[i + 1]; };
-const valueFlags = new Set(['--out-dir', '--label', '--count', '--glasses', '--seed']);
+const valueFlags = new Set(['--out-dir', '--label', '--count', '--glasses', '--seed', '--rotate']);
 const file = argv.find((a, i) => !a.startsWith('--') && !valueFlags.has(argv[i - 1]));
 if (!file) { console.error('Usage: npm run bake -- path/to/bust.glb [--out-dir dir] [--label text] [--count n] [--no-glasses] [--glasses cx,cy,lensR,spacing,dz]'); process.exit(1); }
 const outDir = flag('out-dir', 'public/assets');
@@ -37,6 +37,13 @@ gltf.scene.updateMatrixWorld(true);
 const meshes = [];
 gltf.scene.traverse(obj => { if (obj.isMesh && obj.geometry?.attributes?.position) { const geo = obj.geometry.clone(); geo.applyMatrix4(obj.matrixWorld); meshes.push(geo); } });
 if (!meshes.length) throw new Error('GLB contains no mesh geometry');
+// Orientation fix without touching the model file, e.g. a Z-up export: --rotate -90,0,0 ; face looking to -Z: --rotate 0,180,0
+const rot = (flag('rotate', '') || '').split(',').map(Number);
+if (rot.length === 3 && rot.every(Number.isFinite) && rot.some(Boolean)) {
+  const m = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(...rot.map(d => THREE.MathUtils.degToRad(d)), 'XYZ'));
+  meshes.forEach(g => g.applyMatrix4(m));
+  console.log(`Applied rotation ${rot.join(',')} deg`);
+}
 
 // Area-weighted split across meshes.
 const tri = new THREE.Triangle(), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();

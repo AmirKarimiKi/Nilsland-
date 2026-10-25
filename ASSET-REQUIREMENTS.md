@@ -16,3 +16,15 @@
 6. Brille im Nahausschnitt prüfen; ggf. `--glasses cx,cy,lensR,spacing,dz` (Modelleinheiten) anpassen und neu backen. Die Standardwerte sind Heuristiken aus den Fotoproportionen (runde Panto-Fassung).
 
 Ohne `portrait-points.bin` zeigt die Seite einen expliziten Fehlerzustand („PORTRAIT-ASSET FEHLT“). Kein Platzhalter gilt als fertig.
+
+## Sobald `assets-src/bust.glb` vorliegt (vorbereiteter Ablauf, keine Architekturänderung nötig)
+```
+npm run check:glb                 # Geometrie/Ausrichtung prüfen (Dreiecke, Maße, Z-up?, Blickrichtung, Textur)
+npm run integrate                 # check:glb -> bake (66.000 Punkte, Brille) -> check-bake
+# Ausrichtung korrigieren, falls check:glb warnt:   npm run bake -- assets-src/bust.glb --rotate -90,0,0   (Z-up)
+#                                                    npm run bake -- assets-src/bust.glb --rotate 0,180,0   (Gesicht nach -Z)
+# Brille nachziehen:                                 npm run bake -- assets-src/bust.glb --glasses cx,cy,lensR,spacing,dz
+node scripts/check-bake.mjs       # prüft 66.000 Punkte, 660.000 Byte, Fassungs-/Glaspunkte
+npm run build && npm run preview  # danach: node scripts/verify-browser.mjs  (4K-/Mobil-Screenshots, Buffergröße)
+```
+Danach: Brille im Nahausschnitt gegen das Foto prüfen (Linsenradius, Abstand, Sitz auf dem Nasenrücken, Bügel), Vorder- und Seitenansicht kontrollieren, auf einem echten 4K-Display FPS messen, dann committen und pushen. `assets-src/bust.glb` ist per `.gitignore` nicht im Repo; `portrait-points.bin` und `portrait-meta.json` werden committet.

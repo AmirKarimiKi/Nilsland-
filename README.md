@@ -28,6 +28,8 @@ Blocker und exakte Handlung: `ASSET-REQUIREMENTS.md`. Das Referenzfoto liegt in 
 npm install
 npm run dev                # Entwicklung
 npm run build && npm run preview   # Produktions-Build, http://localhost:4173
+npm run check:glb         # Prüft assets-src/bust.glb (Geometrie, Ausrichtung)
+npm run integrate         # check:glb + bake + Prüfung des gebackenen Assets
 npm run test:fixture       # Primitiv-Testbüste erzeugen + backen -> public/assets/test/
 node scripts/verify-browser.mjs   # optional (playwright): Screenshots 4K/mobil + Buffergröße
 ```

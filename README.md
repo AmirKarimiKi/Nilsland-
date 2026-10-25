@@ -24,6 +24,8 @@ Ohne `portrait-points.bin` zeigt die Seite die **2.5D-Foto-Vorschau** (gelb geke
 - **Direkt nutzbare Prompts:** `prompts/01-front-clay-bust.txt`, `prompts/02-side-clay-bust.txt` (Seitenansicht = KI-Rekonstruktion).
 - Das Foto zeigt eine **honigbraune Schildpatt-Brille**; der Masterprompt verlangt eine **dunkle** Vollrandbrille. Ich bin dem Masterprompt gefolgt (Prompt verlangt „dark full-rim“) — bitte bestätigen, falls die Schildpatt-Optik gewünscht ist.
 
+**Blocker und exakte Handlung: siehe `ASSET-REQUIREMENTS.md`.** Brillen-Standardwerte sind jetzt aus den Proportionen des Referenzfotos (runde Panto-Fassung) abgeleitet.
+
 ## Befehle
 ```
 npm install

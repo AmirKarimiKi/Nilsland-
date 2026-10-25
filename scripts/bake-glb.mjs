@@ -71,12 +71,13 @@ const size = box.getSize(new THREE.Vector3()), centre0 = box.getCenter(new THREE
 
 let removed = 0, rim = [], lens = [];
 if (withGlasses) {
-  // Defaults: eye line ~ 0.19 of the bbox height below the top (bust with shoulders). Tune with --glasses.
+  // Defaults measured on reference-photo.jpg (round panto frames), as fractions of the head+shoulders bbox of the photo framing:
+  // eye line 0.36 of bbox height below the top, lens radius 0.10 of bbox width, centre spacing 1.8 x lens radius. Verify/tune with --glasses.
   const [cxA, cyA, lensRA, spacingA, dzA] = (flag('glasses', '') || '').split(',').map(Number);
   const cx = Number.isFinite(cxA) ? cxA : centre0.x;
-  const cy = Number.isFinite(cyA) ? cyA : box.max.y - size.y * 0.19;
-  const lensR = Number.isFinite(lensRA) ? lensRA : size.x * 0.085;
-  const spacing = Number.isFinite(spacingA) ? spacingA : lensR * 2.35;   // centre-to-centre
+  const cy = Number.isFinite(cyA) ? cyA : box.max.y - size.y * 0.36;
+  const lensR = Number.isFinite(lensRA) ? lensRA : size.x * 0.10;
+  const spacing = Number.isFinite(spacingA) ? spacingA : lensR * 1.8;   // centre-to-centre
   const dz = Number.isFinite(dzA) ? dzA : size.z * 0.03;                  // frame stands off the face
   // Face depth: front-most surface near the eye line.
   let faceZ = -Infinity;
@@ -86,7 +87,7 @@ if (withGlasses) {
   const curves = [];
   for (const side of [-1, 1]) {
     const lx = cx + side * spacing / 2;
-    curves.push({ lx, pts: Array.from({ length: 256 }, (_, k) => { const t = k / 256 * Math.PI * 2; return new THREE.Vector3(lx + Math.cos(t) * lensR, cy + Math.sin(t) * lensR * 0.92, zAt(lx + Math.cos(t) * lensR)); }) });
+    curves.push({ lx, pts: Array.from({ length: 256 }, (_, k) => { const t = k / 256 * Math.PI * 2; return new THREE.Vector3(lx + Math.cos(t) * lensR, cy + Math.sin(t) * lensR, zAt(lx + Math.cos(t) * lensR)); }) });
   }
   // Bridge arc and temple arms.
   const bridge = Array.from({ length: 24 }, (_, k) => { const t = k / 23, x = cx - spacing / 2 + lensR + t * (spacing - 2 * lensR); return new THREE.Vector3(x, cy + lensR * 0.28 + Math.sin(t * Math.PI) * lensR * 0.12, zAt(x)); });
@@ -109,7 +110,7 @@ if (withGlasses) {
   // Lens points: sparse, recessed slightly behind the rim, used only for shimmer.
   for (let i = 0; i < lensBudget; i++) {
     const cu = curves[i % 2], ang = rand() * Math.PI * 2, rad = Math.sqrt(rand()) * lensR * 0.93;
-    lens.push({ p: new THREE.Vector3(cu.lx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad * 0.92, zAt(cu.lx) - dz * 0.35), n: new THREE.Vector3(0, 0, 1), kind: 2 });
+    lens.push({ p: new THREE.Vector3(cu.lx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad, zAt(cu.lx) - dz * 0.35), n: new THREE.Vector3(0, 0, 1), kind: 2 });
   }
   console.log(`Glasses: centre (${cx.toFixed(3)}, ${cy.toFixed(3)}), lensR ${lensR.toFixed(3)}, spacing ${spacing.toFixed(3)}, faceZ ${faceZ.toFixed(3)}; removed ${removed} native points`);
 }

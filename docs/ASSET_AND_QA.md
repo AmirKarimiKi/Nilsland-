@@ -1,3 +1,5 @@
+> **Teilweise überholt** durch `CORRECTED_SPEC_2026-10-25.md` (gesichtslose Tonbüste; kein Lächeln/keine Zähne modelliert).
+
 # Asset & QA / completion checklist
 
 ## Files and ownership

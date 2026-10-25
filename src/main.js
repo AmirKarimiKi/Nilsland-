@@ -174,9 +174,9 @@ const material = new THREE.ShaderMaterial({
   vertexShader: /* glsl */`
     attribute float aSeed; attribute float aKind;
     uniform float uIntro, uSweep, uGlint, uRatio, uPointScale, uLightOn; uniform vec3 uLight;
-    varying float vBright; varying float vSeed;
+    varying float vBright; varying float vSeed; varying float vGlint;
     void main(){
-      vSeed = aSeed;
+      vGlint = 0.; vSeed = aSeed;
       // Unfold: every dot starts on a ring and eases to its place on the bust.
       float th = aSeed * 6.2831853;
       vec3 start = vec3(cos(th) * .46, sin(th) * .46, 0.);
@@ -201,7 +201,7 @@ const material = new THREE.ShaderMaterial({
       if (aKind > .5 && aKind < 1.5) { base = .62; size += .5; }          // spectacle rim: slightly denser/brighter
       if (aKind > 1.5) {                                                // lens: very faint, a slow glint passes over it
         float glint = exp(-pow((world.x - uGlint) * 5., 2.));
-        base = .10 + glint * .55; size = 2.0;
+        base = .10 + glint * .55; size = 2.0; vGlint = glint;
       }
       vBright = min(1.15, (base + lit * .75 + rim * .10 + sweep * .55) * (.86 + aSeed * .28));
       vec4 view = viewMatrix * world;
@@ -209,12 +209,13 @@ const material = new THREE.ShaderMaterial({
       gl_PointSize = clamp((size + sweep * 1.0) * uRatio * uPointScale * 5. / -view.z, 1., 10.);
     }`,
   fragmentShader: /* glsl */`
-    precision mediump float; varying float vBright; varying float vSeed;
+    precision mediump float; varying float vBright; varying float vSeed; varying float vGlint;
     void main(){
       float r = length(gl_PointCoord - .5);
-      float a = exp(-r * r * 18.) * .88;            // soft gaussian sprite
+      float a = exp(-r * r * 16.) * .88;            // soft gaussian sprite
       if (a < .018) discard;
       vec3 tint = mix(vec3(.74,.76,.79), vec3(.88,.90,.93), vSeed);
+      tint = mix(tint, vec3(.62,.74,.98), vGlint * .8);   // rare cool glint on the lenses only
       gl_FragColor = vec4(tint * vBright, a);
     }`
 });

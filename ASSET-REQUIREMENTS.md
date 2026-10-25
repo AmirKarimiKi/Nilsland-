@@ -29,7 +29,11 @@ npm run build && npm run preview  # danach: node scripts/verify-browser.mjs  (4K
 ```
 Danach: Brille im Nahausschnitt gegen das Foto prüfen (Linsenradius, Abstand, Sitz auf dem Nasenrücken, Bügel), Vorder- und Seitenansicht kontrollieren, auf einem echten 4K-Display FPS messen, dann committen und pushen. `assets-src/bust.glb` ist per `.gitignore` nicht im Repo; `portrait-points.bin` und `portrait-meta.json` werden committet.
 
-## Verbindliche Prompts (Stand Identitäts-Übergabe, ersetzt 01/02 des Masterprompts)
-Maßgeblich sind jetzt `prompts/03-front-clay-IDENTITY.txt`, `04-side-clay-IDENTITY-inferred.txt` und `05-image-to-3d-GLB.txt`. Sie verlangen Wiedererkennbarkeit (Lächeln, Frisur, runde Schildpatt-Brille bleiben erhalten). `prompts/01`/`02` (gesichtsloser Ton-Look, dunkle Brille) sind überholt und widersprechen der Identitätsanforderung. Die Seitenansicht ist eine KI-Rekonstruktion. Checkliste: `docs/ASSET_AND_QA.md`. Foto-SHA-256: `6b57a99f26232e5ebe9b710c52ac9a76a9428f6dc5383aa29d943c2b7df0d832` (identisch mit der Übergabe).
+## Verbindliche Vorgabe (korrigiertes Paket, ersetzt alle früheren Gestaltungsanweisungen)
+Maßgeblich: `docs/CORRECTED_SPEC_2026-10-25.md`. Umgesetzt wird die **stilisierte, gesichtslose matt hellgraue Tonbüste** wie im Originalartikel (keine Augen, Nase, Mund, Ohren; Identität über Kopfkontur, Frisur, runde Vollrandbrille, Kiefer, Rollkragen). Das Lächeln wird nicht modelliert. Die Brille im Foto ist schildpatt, im Clay-Modell mattgrau. Die Prompts: `prompts/01-clay-front-FACELESS.txt`, `02-clay-side-FACELESS-inferred.txt` (Seite = KI-Schätzung), `03-image-to-3d-GLB.txt`. Alle früheren Prompts (realistische/identitätstreue Gesichter) sind widerrufen.
+Foto-SHA-256: `6b57a99f26232e5ebe9b710c52ac9a76a9428f6dc5383aa29d943c2b7df0d832`.
+`docs/ASSET_AND_QA.md` ist in Teilen überholt (Zähne/Lächeln, sichtbare Gesichtszüge): gilt nicht mehr.
 
-Datenschutz: `assets-src/reference-photo.jpg` ist nicht in `public/` und nicht im Build, steckt aber noch in der Git-Historie (Commit bd3b6f8, `public/assets/reference-photo.jpg`). Entfernen würde einen Force-Push erfordern und wird nur nach ausdrücklicher Freigabe durchgeführt.
+Datenschutz: `assets-src/reference-photo.jpg` ist nicht in `public/` und nicht im Build, steckt aber noch in der Git-Historie (Commit bd3b6f8). Entfernen erfordert einen Force-Push und erfolgt nur nach ausdrücklicher Freigabe.
+
+Nicht abgeglichen: Artikel und Demo (`avivashishta.com`) sind aus dieser Umgebung nicht erreichbar (DNS-Fehler). Der visuelle Abgleich mit der Originaldemo steht daher aus; Stilparameter stammen aus Masterprompt und korrigierter Spezifikation.

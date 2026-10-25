@@ -29,5 +29,7 @@ npm run build && npm run preview  # danach: node scripts/verify-browser.mjs  (4K
 ```
 Danach: Brille im Nahausschnitt gegen das Foto prüfen (Linsenradius, Abstand, Sitz auf dem Nasenrücken, Bügel), Vorder- und Seitenansicht kontrollieren, auf einem echten 4K-Display FPS messen, dann committen und pushen. `assets-src/bust.glb` ist per `.gitignore` nicht im Repo; `portrait-points.bin` und `portrait-meta.json` werden committet.
 
-## Hinweis zur Identitätstreue (Prompts)
-Der ursprüngliche Masterprompt (`prompts/01`, `02`) verlangt ein *gesichtsloses* Gesicht ohne Augen, Nase, Mund. Das widerspricht der aktuellen Anforderung „eindeutig wiedererkennbar“. Für Wiedererkennbarkeit stattdessen `prompts/03` (Front) und `prompts/04` (Seite, KI-Rekonstruktion) verwenden. Ob das Ergebnis die Person tatsächlich trifft, lässt sich erst am erzeugten Bild/GLB beurteilen.
+## Verbindliche Prompts (Stand Identitäts-Übergabe, ersetzt 01/02 des Masterprompts)
+Maßgeblich sind jetzt `prompts/03-front-clay-IDENTITY.txt`, `04-side-clay-IDENTITY-inferred.txt` und `05-image-to-3d-GLB.txt`. Sie verlangen Wiedererkennbarkeit (Lächeln, Frisur, runde Schildpatt-Brille bleiben erhalten). `prompts/01`/`02` (gesichtsloser Ton-Look, dunkle Brille) sind überholt und widersprechen der Identitätsanforderung. Die Seitenansicht ist eine KI-Rekonstruktion. Checkliste: `docs/ASSET_AND_QA.md`. Foto-SHA-256: `6b57a99f26232e5ebe9b710c52ac9a76a9428f6dc5383aa29d943c2b7df0d832` (identisch mit der Übergabe).
+
+Datenschutz: `assets-src/reference-photo.jpg` ist nicht in `public/` und nicht im Build, steckt aber noch in der Git-Historie (Commit bd3b6f8, `public/assets/reference-photo.jpg`). Entfernen würde einen Force-Push erfordern und wird nur nach ausdrücklicher Freigabe durchgeführt.

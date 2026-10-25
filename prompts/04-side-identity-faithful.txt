@@ -1,4 +1,0 @@
-Attach: assets-src/reference-photo.jpg AND the front clay image from 03.
-KI-Rekonstruktion: the side profile is inferred, not photographed.
-
-Using the same reference portrait and the attached front clay bust, create the CONSISTENT true 90-degree left side profile of exactly the same matte light-grey clay bust: same hair volume and swept-back shape, forehead, nose projection, lips, chin, neck, shoulders, high turtleneck collar, and the round panto glasses with a straight temple arm to the ear. Infer hidden geometry conservatively and keep the head depth plausible for this head width. White seamless studio background, orthographic camera, bust uncropped, no text.

@@ -7,6 +7,7 @@ const el = { app: $('#app'), loader: $('#loader'), arc: $('#arc'), pct: $('#pct'
 const params = new URLSearchParams(location.search);
 const BASE = import.meta.env.BASE_URL;
 const ASSET_DIR = `${BASE}assets/${params.get('asset') === 'test' ? 'test/' : ''}`; // ?asset=test -> primitive test fixture
+if (params.has('clean')) document.documentElement.classList.add('clean');   // inspection only: hide UI text for comparison images
 const mobile = matchMedia('(max-width: 720px)').matches || matchMedia('(pointer: coarse)').matches;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const mem = navigator.deviceMemory || 8, cores = navigator.hardwareConcurrency || 8;

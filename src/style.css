@@ -24,3 +24,5 @@ canvas{display:block;position:absolute;inset:0}
 @media(max-width:600px){#hint{font-size:8px}#note{font-size:8px;max-width:220px;left:16px;top:16px}#panel{top:auto;bottom:16px;right:16px}}
 @media(prefers-reduced-motion:reduce){.arc.indeterminate{animation:none}#loader{transition:none}}
 [hidden]{display:none!important}
+
+.clean #note,.clean #hint,.clean #panel{display:none!important}

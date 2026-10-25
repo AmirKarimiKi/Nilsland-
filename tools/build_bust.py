@@ -23,6 +23,7 @@ head[1100:] = False
 head = cv2.morphologyEx(head.astype(np.uint8), cv2.MORPH_OPEN, np.ones((9, 9), np.uint8))
 n, lab, st, _ = cv2.connectedComponentsWithStats(head); head = lab == (1 + np.argmax(st[1:, cv2.CC_STAT_AREA]))
 head = cv2.morphologyEx(head.astype(np.uint8), cv2.MORPH_CLOSE, np.ones((25, 25), np.uint8)).astype(bool)
+head[860:, :640] = False; head[860:, 1290:] = False   # jaw rows: drop the bright-background tip beside the right collar (head is <= ~330 px from the axis there)
 body = cv2.dilate(dark.astype(np.uint8), np.ones((7, 7), np.uint8)).astype(bool); body[:800] = False
 
 def extents(mask, y_from, y_to):
@@ -53,13 +54,15 @@ zcH = (zf + zb) / 2; hdH = (zf - zb) / 2
 
 # ---------------------------------------------------------------- collar + shoulders contour
 hwB, cxB = extents(body, 800, H)
+hwP, cxP = extents(person, 800, H)
+hwB = np.minimum(hwB, hwP + 2); cxB = np.where(hwB > 0, cxB, cxP)   # never wider than the photo silhouette
 hwB = gaussian_filter1d(hwB, 10); cxB = gaussian_filter1d(cxB, 30)
 _s = np.clip((yy - 800) / 90.0, 0, 1); hwB = hwB * (0.80 + 0.20 * np.sqrt(1 - (1 - _s) ** 2))   # rounded collar top
 rollB = 1 + 0.10 * np.exp(-((yy - 880) / 45.0) ** 2)     # turtleneck roll
-bfy = [800, 1040, 1150, 1300, 1500]; bfz = [225, 235, 250, 300, 330]
-bby = [800, 1040, 1150, 1300, 1500]; bbz = [-235, -240, -255, -300, -330]
+bfy = [800, 1000, 1060, 1150, 1300, 1500]; bfz = [200, 215, 245, 255, 300, 330]
+bby = [800, 1040, 1150, 1300, 1500]; bbz = [-270, -275, -280, -300, -330]
 zfB = np.interp(yy, bfy, bfz); zbB = np.interp(yy, bby, bbz)
-zcB = (zfB + zbB) / 2; hdB = (zfB - zbB) / 2 * rollB * (0.80 + 0.20 * np.sqrt(1 - (1 - _s) ** 2)); hwB = hwB * rollB
+zcB = (zfB + zbB) / 2; hdB = (zfB - zbB) / 2 * rollB * (0.80 + 0.20 * np.sqrt(1 - (1 - _s) ** 2))
 nB = ramp(800, 1300, 2.3, 3.0)
 
 # ---------------------------------------------------------------- hair features (px, 2000x1500 working scale)

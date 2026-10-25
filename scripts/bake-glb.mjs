@@ -96,14 +96,19 @@ if (withGlasses) {
   let faceZ = -Infinity;
   for (const s of surf) if (Math.abs(s.p.y - cy) < lensR * 1.2 && Math.abs(s.p.x - cx) < spacing * 1.2) faceZ = Math.max(faceZ, s.p.z);
   if (!Number.isFinite(faceZ)) faceZ = box.max.z;
-  const zAt = (x) => faceZ + dz - Math.pow(Math.abs(x - cx) / (spacing * 1.7), 2) * size.z * 0.12; // frame wraps slightly around the head
+  // Frame depth follows the actual head surface: front-most surface sample in a small xy neighbourhood (+ stand-off dz),
+  // so the glasses wrap the head instead of floating on a flat plane (visible at 45/90 deg).
+  const CELL = 0.03, grid = new Map(), key = (i, j) => i * 100003 + j;
+  for (const q of surf) if (Math.abs(q.p.y - cy) < lensR * 1.6 && Math.abs(q.p.x - cx) < spacing * 1.6) { const k = key(Math.floor(q.p.x / CELL), Math.floor(q.p.y / CELL)); grid.set(k, Math.max(grid.get(k) ?? -Infinity, q.p.z)); }
+  const surfZ = (x, y) => { let z = -Infinity; const i0 = Math.floor(x / CELL), j0 = Math.floor(y / CELL); for (let i = i0 - 1; i <= i0 + 1; i++) for (let j = j0 - 1; j <= j0 + 1; j++) z = Math.max(z, grid.get(key(i, j)) ?? -Infinity); return Number.isFinite(z) ? z : faceZ; };
+  const zAt = (x, y = cy) => surfZ(x, y) + dz;
   const curves = [];
   for (const side of [-1, 1]) {
     const lx = cx + side * spacing / 2;
-    curves.push({ lx, pts: Array.from({ length: 256 }, (_, k) => { const t = k / 256 * Math.PI * 2; return new THREE.Vector3(lx + Math.cos(t) * lensR, cy + Math.sin(t) * lensR, zAt(lx + Math.cos(t) * lensR)); }) });
+    curves.push({ lx, pts: Array.from({ length: 256 }, (_, k) => { const t = k / 256 * Math.PI * 2; return new THREE.Vector3(lx + Math.cos(t) * lensR, cy + Math.sin(t) * lensR, zAt(lx + Math.cos(t) * lensR, cy + Math.sin(t) * lensR)); }) });
   }
   // Bridge arc and temple arms.
-  const bridge = Array.from({ length: 24 }, (_, k) => { const t = k / 23, x = cx - spacing / 2 + lensR + t * (spacing - 2 * lensR); return new THREE.Vector3(x, cy + lensR * 0.28 + Math.sin(t * Math.PI) * lensR * 0.12, zAt(x)); });
+  const bridge = Array.from({ length: 24 }, (_, k) => { const t = k / 23, x = cx - spacing / 2 + lensR + t * (spacing - 2 * lensR); return new THREE.Vector3(x, cy + lensR * 0.28 + Math.sin(t * Math.PI) * lensR * 0.12, zAt(x, cy + lensR * 0.28)); });
   // Temple arms run from the lens edge back along the head surface (side surface x at each depth is read from the sampled points).
   const band = surf.filter(q => Math.abs(q.p.y - cy) < lensR * 0.35);
   const sideX = (side, z) => { let best = 0; for (const q of band) { const dx = (q.p.x - cx) * side; if (dx > best && Math.abs(q.p.z - z) < size.z * 0.02) best = dx; } return best; };
@@ -120,7 +125,7 @@ if (withGlasses) {
   });
   const rimLine = [...curves.map(cu => cu.pts), bridge, ...temples];
   // Remove native points that overlap the frame (local only, radius < rim thickness * 1.8).
-  const rimR = lensR * 0.075, kill = rimR * 1.8;
+  const rimR = lensR * 0.06, kill = rimR * 1.8;
   const flat = rimLine.flat();
   const before = surf.length;
   surf = surf.filter(s => !(Math.abs(s.p.y - cy) < lensR * 1.4 && flat.some(q => q.distanceToSquared(s.p) < kill * kill)));
@@ -139,7 +144,7 @@ if (withGlasses) {
   // Lens points: sparse, recessed slightly behind the rim, used only for shimmer.
   for (let i = 0; i < lensBudget; i++) {
     const cu = curves[i % 2], ang = rand() * Math.PI * 2, rad = Math.sqrt(rand()) * lensR * 0.93;
-    lens.push({ p: new THREE.Vector3(cu.lx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad, zAt(cu.lx) - dz * 0.35), n: new THREE.Vector3(0, 0, 1), kind: 2 });
+    lens.push({ p: new THREE.Vector3(cu.lx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad, zAt(cu.lx + Math.cos(ang) * rad, cy + Math.sin(ang) * rad) - dz * 0.35), n: new THREE.Vector3(0, 0, 1), kind: 2 });
   }
   console.log(`Glasses: centre (${cx.toFixed(3)}, ${cy.toFixed(3)}), lensR ${lensR.toFixed(3)}, spacing ${spacing.toFixed(3)}, faceZ ${faceZ.toFixed(3)}; removed ${removed} native points`);
 }

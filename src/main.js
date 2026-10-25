@@ -258,7 +258,8 @@ function tick(t) {
   lightTarget.copy(camera.position).addScaledVector(dirV, (camera.position.z - 1.3) / -dirV.z);
   u.uLight.value.lerp(lightTarget, .12);
   u.uLightOn.value += ((pointer.seen ? 1 : 0) * Math.min(1, Math.max(0, (elapsed - 3.6) / 1)) - u.uLightOn.value) * .06;
-  if (!reducedMotion) {
+  if (params.has('yaw')) { cloud.rotation.y = THREE.MathUtils.degToRad(Number(params.get('yaw')) || 0); }   // inspection only: fixed turntable angle
+  else if (!reducedMotion) {
     cloud.rotation.y += (THREE.MathUtils.clamp(pointer.x * .21, -.23, .23) - cloud.rotation.y) * .045;   // subtle turn toward the cursor
     cloud.rotation.x += (THREE.MathUtils.clamp(-pointer.y * .09, -.09, .09) - cloud.rotation.x) * .045;
   }

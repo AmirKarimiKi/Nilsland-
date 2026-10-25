@@ -18,13 +18,23 @@ Kein fremder Originalcode wurde übernommen; das Original wurde nicht abgerufen,
 | Abgleich mit Originalartikel/-demo | **nicht möglich** (Domain aus der Umgebung nicht erreichbar) |
 | Reale GPU-FPS auf 4K-Gerät | **NICHT gemessen** (Software-GL: ~4–6 FPS bei 4K) |
 
-### Wie das GLB entstanden ist (Abweichung vom Tutorial)
-Hugging Face, Higgsfield, Meshy und Tripo sind aus der Umgebung nicht erreichbar, es gibt keine GPU und Arcads hat keine Credits. Deshalb wurde das GLB **lokal und klassisch aus dem einen Foto** rekonstruiert (`tools/segment.py` → `tools/build_bust.py`, Python: OpenCV GrabCut, Marching Cubes):
-- Personenmaske aus dem Foto (Kopfkontur, Haarmasse, Kiefer/Hals, Rollkragen, Schultern); Ohren werden entfernt, keine Gesichtszüge modelliert (gesichtslos).
-- Pro Bildzeile ein Superellipsen-Querschnitt; **die Tiefe ist eine Annahme** (Tiefen/Breiten-Verhältnis, Kinn-Rücksprung, Kragenwulst), nicht gemessen und nicht aus einer KI-Seitenansicht. Seitenprofil und Rückseite sind vollständig geschätzt.
-- Geschlossenes, untexturiertes Netz (≈490k Dreiecke), Y oben, Gesicht +Z.
-**Unterschiede zum Tutorial:** keine Front-/Seiten-Tonbüsten-Bilder, kein Multi-Image-to-3D, keine modellierte Frisur-Struktur (Haar ist nur Kopfmasse), Profil generisch. Wiedererkennbar sind vor allem Kopf-/Schulterumriss, Kragen und Brillenmaß. Das Ergebnis ist eine **belastbare Zwischenlösung**, kein Ersatz für ein Meshy-GLB: Ein Higgsfield-/Meshy-`bust.glb` kann unverändert per `npm run integrate` eingesetzt werden (Datei überschreiben).
-Neu erzeugen: `python3 tools/segment.py && python3 tools/build_bust.py && npm run integrate` (pip: numpy scipy opencv-python-headless scikit-image trimesh pillow).
+### Wie das GLB entstanden ist – APPROXIMIERTE Geometrie (v2)
+Hugging Face, Higgsfield, Meshy und Tripo sind aus der Umgebung nicht erreichbar, es gibt keine GPU und Arcads hat keine Credits. Das GLB wurde deshalb **lokal und klassisch aus dem einen Foto** gebaut (`tools/segment.py` → `tools/build_bust.py`; Python: OpenCV GrabCut, Marching Cubes). Es ist eine **Näherung, kein Scan und keine KI-3D-Rekonstruktion**:
+- **Kopf** (ohne schwarzen Pullover) und **Kragen + Schultern** sind getrennte Volumina aus den Foto-Konturen und werden vereinigt, damit der Kiefer vor dem Rollkragen sitzt. Ohren und Gesichtszüge fehlen (gesichtslos).
+- **Tiefe/Profil ist geschätzt**: von Hand gesetzte Anatomie-Kurven (Stirn, Braue, Wange, Kinnrücksprung, Hinterkopf, Nacken, Kiefer-Unterseite), nicht gemessen und nicht aus einer Seitenaufnahme.
+- **Haar**: Konturvolumen aus dem Foto, Seitenscheitel-Rille und diagonales Strähnenrelief (aus dem Foto-Ausschnitt abgeleitet, bewusst flach, damit es in 66.000 Punkten nicht rauscht). Es gibt keine einzelnen Strähnen.
+- **Rollkragen**: gerundete Oberkante mit Wulst; **Schultern** aus der Foto-Kontur, Brusttiefe angenommen.
+- Geschlossenes, untexturiertes Netz (~490k Dreiecke, ~12 MB), Y oben, Gesicht +Z.
+Prüfansichten: Front/45°/90° des Netzes `docs/clay-preview-front-45-90deg-inferred.png`, der Punktwolke `docs/screenshots/portrait-yaw{0,45,90}.jpg` (`?yaw=<Grad>` fixiert den Drehwinkel, nur zur Inspektion).
+
+**Verbleibende Abweichungen zur Originalanleitung / zum Foto**
+- Keine Front-/Seiten-Tonbüsten-Bilder und kein Multi-Image-to-3D (Meshy/Higgsfield/Tripo).
+- Profil und Rückseite sind Annahmen; die Büste ist kein belegt originalgetreues Abbild der Person. Wiedererkennbar sind vor allem Kopf-/Schulterumriss, Haarmasse, Kragen und Brillenmaß.
+- Der 90°-Blick wirkt noch gedrungen (Kopf auf kurzem Kragen); Kiefer-/Kragenübergang und Schulterneigung sind vereinfacht.
+- Haarstruktur nur als flaches Relief; Scheitel-Lage ist aus dem Foto geschätzt.
+- Brille: runde Fassung mit Fotomaßen; bei 45°/90° steht sie etwas vor dem flach geformten Gesicht.
+- Kein Abgleich mit Originalartikel/-demo möglich (Domain nicht erreichbar).
+Neu erzeugen: `python3 tools/segment.py && python3 tools/build_bust.py && npm run integrate` (pip: numpy scipy opencv-python-headless scikit-image trimesh pillow fast-simplification). Ein Meshy-/Higgsfield-`bust.glb` kann unverändert per `npm run integrate` eingesetzt werden.
 
 ## Befehle
 ```

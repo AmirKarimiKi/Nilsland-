@@ -9,7 +9,11 @@ const BASE = import.meta.env.BASE_URL;
 const ASSET_DIR = `${BASE}assets/${params.get('asset') === 'test' ? 'test/' : ''}`; // ?asset=test -> primitive test fixture
 const mobile = matchMedia('(max-width: 720px)').matches || matchMedia('(pointer: coarse)').matches;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const MAX_POINTS = mobile ? 36000 : 66000; // GPU / memory budget; the bake shuffles points so any prefix is a uniform subsample
+const mem = navigator.deviceMemory || 8, cores = navigator.hardwareConcurrency || 8;
+// Hardware-adaptive density: 66k target on capable desktops, fewer on phones / weak devices. ?points=N overrides (test only).
+const tierPoints = mobile ? 36000 : (mem <= 2 || cores <= 2) ? 36000 : 66000;
+const MAX_POINTS = Math.min(66000, Number(params.get('points')) || tierPoints); // the bake shuffles points so any prefix is a uniform subsample
+const PREVIEW = import.meta.env.DEV && params.has('preview'); // 2.5D photo study: dev-only, never part of a production build
 const SCALE = 2.9;                          // world size of the normalised bust (largest bbox side)
 const STRIDE = 10;
 
@@ -27,10 +31,27 @@ try {
   fail('WEBGL NICHT VERFÜGBAR — Dieser Browser oder dieses Gerät kann die 3D-Punktwolke nicht darstellen.');
   throw err;
 }
-const maxDpr = mobile ? 1.5 : 2;
-const dpr = () => Math.min(devicePixelRatio || 1, maxDpr);
-renderer.setPixelRatio(dpr());
-renderer.setSize(innerWidth, innerHeight);
+// Resolution: real drawing-buffer pixels, not CSS upscaling. 3840x2160 (8.29 Mpx) fits the desktop budget; the
+// budget, WebGL limits and a dynamic scale (see tick) keep weaker GPUs and phones in range.
+const gl = renderer.getContext();
+const maxDim = Math.min(...gl.getParameter(gl.MAX_VIEWPORT_DIMS), gl.getParameter(gl.MAX_RENDERBUFFER_SIZE));
+const PIXEL_BUDGET = mobile ? 2.5e6 : 8.6e6;
+const maxDpr = Number(params.get('dpr')) || (mobile ? 1.5 : 2);
+let resScale = 1; const MIN_SCALE = 0.55;
+const dpr = () => {
+  const w = innerWidth, h = innerHeight;
+  let d = Math.min(devicePixelRatio || 1, maxDpr) * resScale;
+  d = Math.min(d, Math.sqrt(PIXEL_BUDGET / (w * h)), maxDim / Math.max(w, h));
+  return Math.max(0.5, d);
+};
+const buffer = { w: 0, h: 0, dpr: 0 };
+function applyResolution() {
+  const d = dpr(); renderer.setPixelRatio(d); renderer.setSize(innerWidth, innerHeight);
+  material.uniforms.uRatio.value = d;
+  buffer.w = gl.drawingBufferWidth; buffer.h = gl.drawingBufferHeight; buffer.dpr = d;
+  if (window.__dots) window.__dots.buffer = { ...buffer, css: [innerWidth, innerHeight], devicePixelRatio, maxDim };
+  console.info(`[dots] drawing buffer ${buffer.w}x${buffer.h} (CSS ${innerWidth}x${innerHeight}, dpr ${d.toFixed(3)}, devicePixelRatio ${devicePixelRatio}, scale ${resScale.toFixed(2)}, max ${maxDim})`);
+}
 renderer.setClearColor(0x060608);
 el.app.prepend(renderer.domElement);
 
@@ -108,7 +129,8 @@ async function buildPhotoPreview() {
   el.status.textContent = 'PREPARING 2.5D STUDY';
   setIndeterminate();
   const img = new Image();
-  img.src = `${BASE}assets/reference-photo.jpg`;
+  if (!import.meta.env.DEV) throw new Error('2.5D preview is dev-only');
+  img.src = '/assets-src/reference-photo.jpg'; // served from the project root by the dev server only; not in public/, not in dist/
   await img.decode();
   const W = 480, H = Math.round(W * img.height / img.width);
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
@@ -147,7 +169,7 @@ const material = new THREE.ShaderMaterial({
   uniforms: {
     uIntro: { value: 0 }, uSweep: { value: -9 }, uGlint: { value: -9 },
     uLight: { value: new THREE.Vector3(0, 0, 2) }, uLightOn: { value: 0 },
-    uRatio: { value: dpr() }, uPointScale: { value: mobile ? 1.15 : 1 }
+    uRatio: { value: 1 }, uPointScale: { value: mobile ? 1.15 : 1 }
   },
   vertexShader: /* glsl */`
     attribute float aSeed; attribute float aKind;
@@ -207,10 +229,8 @@ function onPointer(e) {
 }
 addEventListener('pointermove', onPointer, { passive: true });
 addEventListener('pointerdown', onPointer, { passive: true });
-addEventListener('resize', () => {
-  renderer.setPixelRatio(dpr()); renderer.setSize(innerWidth, innerHeight);
-  material.uniforms.uRatio.value = dpr(); fitCamera();
-});
+addEventListener('resize', () => { applyResolution(); fitCamera(); });
+applyResolution();
 renderer.domElement.addEventListener('webglcontextlost', (e) => {
   e.preventDefault(); renderer.setAnimationLoop(null);
   el.note.classList.add('warn'); el.note.textContent = 'WEBGL-KONTEXT VERLOREN — warte auf Wiederherstellung …';
@@ -220,6 +240,7 @@ renderer.domElement.addEventListener('webglcontextrestored', () => {
 });
 
 // ---------------------------------------------------------------- main
+const fixedRes = params.has('fixedres'); let lastT = 0, dtSum = 0, dtN = 0;
 let cloud, noteText = '', begin = 0, frames = 0, lastFps = performance.now(), fps = 0, dotCount = 0, modeLabel = '';
 const INTRO = 2.4, SWEEP_AT = 2.6, SWEEP_LEN = 1.9;
 
@@ -242,13 +263,26 @@ function tick(t) {
   }
   renderer.render(scene, camera);
   frames++;
-  if (t - lastFps > 1000) { fps = Math.round(frames * 1000 / (t - lastFps)); frames = 0; lastFps = t; el.stats.textContent = `${modeLabel} · ${dotCount.toLocaleString('de-DE')} DOTS · ${fps} FPS`; }
+  // Dynamic resolution: if the measured frame time stays above ~22 ms after warm-up, step the buffer down (never up -> no oscillation).
+  const dt = t - lastT; lastT = t;
+  if (!fixedRes && elapsed > 4 && dt < 200) {
+    dtSum += dt; dtN++;
+    if (dtN >= 90) { if (dtSum / dtN > 22 && resScale > MIN_SCALE) { resScale = Math.max(MIN_SCALE, resScale * 0.85); applyResolution(); } dtSum = 0; dtN = 0; }
+  }
+  if (t - lastFps > 1000) {
+    fps = Math.round(frames * 1000 / (t - lastFps)); frames = 0; lastFps = t;
+    el.stats.textContent = `${modeLabel} · ${dotCount.toLocaleString('de-DE')} DOTS · ${buffer.w}×${buffer.h} · ${fps} FPS`;
+    if (window.__dots) window.__dots.fps = fps;
+  }
 }
 
 async function start() {
   let result = null;
-  try { result = await loadBakedPoints(); }
-  catch (e) { console.warn('Baked asset failed, falling back to preview:', e); }
+  if (!PREVIEW) {
+    try { result = await loadBakedPoints(); }
+    catch (e) { console.warn('Baked asset failed:', e); fail(`PUNKT-ASSET DEFEKT — ${e.message || e}`); return; }
+    if (!result) { fail('PORTRAIT-ASSET FEHLT — public/assets/portrait-points.bin wurde noch nicht erzeugt. Benötigt: bust.glb → npm run bake -- bust.glb (siehe ASSET-REQUIREMENTS.md). Dies ist kein fertiger Zustand.'); return; }
+  }
 
   if (result) {
     const label = result.meta?.label || 'GLB SURFACE POINT CLOUD';
@@ -259,7 +293,7 @@ async function start() {
   } else {
     result = await buildPhotoPreview();
     modeLabel = '2.5D PREVIEW';
-    noteText = '2.5D-FOTO-VORSCHAU — NICHT die 3D-Skulptur. Es liegt noch kein gebackenes GLB-Punktasset vor (siehe README: GLB erzeugen, dann npm run bake).';
+    noteText = '2.5D-FOTO-VORSCHAU (nur Dev) — NICHT die 3D-Skulptur und nicht fertig.';
     el.note.classList.add('warn');
   }
   el.note.textContent = noteText;
@@ -273,6 +307,6 @@ async function start() {
   begin = performance.now();
   el.replay.addEventListener('click', () => { begin = performance.now(); material.uniforms.uLightOn.value = 0; });
   renderer.setAnimationLoop(tick);
-  window.__dots = { count: dotCount, mode: modeLabel, ready: true }; // used by the automated check
+  window.__dots = { count: dotCount, mode: modeLabel, ready: true, buffer: { ...buffer, css: [innerWidth, innerHeight], devicePixelRatio, maxDim } }; // used by the automated check
 }
 start().catch((err) => fail(`FEHLER BEIM START — ${err.message || err}`));

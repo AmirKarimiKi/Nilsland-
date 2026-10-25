@@ -5,26 +5,23 @@ https://www.avivashishta.com/blog/made-of-dots-webgl-point-cloud-portrait
 (Foto → Tonbüste front/seitlich → GLB → 66.000 flächengewichtete Punkte → WebGL). Anleitung: `CLAUDE_MASTERPROMPT.md`.
 Kein fremder Originalcode wurde übernommen; das Original wurde nicht abgerufen, nur der Masterprompt befolgt.
 
-## Status — ehrlich
+## Status-Matrix
 
 | Baustein | Status |
 |---|---|
-| Vite/Three.js-Seite, Shader, Streaming-Loader mit Ring, Intro, Sweep, Cursor-Licht, Kopfdrehung, Brillen-Glanz | **fertig, getestet** |
-| Bake-Skript (`npm run bake`): MeshSurfaceSampler, 10 Byte/Punkt, Brillen-Kurvenpunkte, lokale Entfernung überlappender Punkte, deterministisch | **fertig, an Testmodell geprüft** |
-| Responsive/Touch/reduced-motion/Mobil-Punktlimit/WebGL-Fehler- und Kontextverlust-Zustand | **fertig** |
-| Tonbüste Front + Seite (Bild-Output) | **FEHLT** — siehe unten |
-| Echtes GLB des Porträts | **FEHLT** — manueller Schritt |
-| `public/assets/portrait-points.bin` des Porträts | **FEHLT** (entsteht erst aus dem GLB) |
-| Kalibrierung der Brille am echten Modell | **FEHLT** (`--glasses`-Parameter) |
+| Vite/Three.js-Seite, Shader, Streaming-Loader mit Ring, Intro, Sweep, Cursor-Licht, Kopfdrehung, Brillen-Glanz | erstellt, im Headless-Browser getestet |
+| Bake-Skript (66.000 × 10 Byte, Brillenkurven, lokale Punktentfernung) | erstellt, nur an der Test-Fixture getestet |
+| 4K: echter Drawing-Buffer, Pixel-Budget, WebGL-Limits, dynamische Auflösung (`?dpr=`, `?fixedres`) | erstellt; **3840×2160-Buffer nachgewiesen** (Software-GL; `docs/screenshots/fixture-4k-3840x2160.jpg`) |
+| Punktdichte nach Hardware (66k Desktop / 36k mobil oder schwach, `?points=`) | erstellt |
+| Expliziter Fehlerzustand ohne Porträt-Asset | erstellt, getestet (`docs/screenshots/missing-asset-error.jpg`) |
+| 2.5D-Fotovorschau | nur `npm run dev` mit `?preview`, nicht im Build, nie „fertig“ |
+| **Porträt-GLB `bust.glb`** | **NICHT vorhanden** |
+| **`portrait-points.bin` des Porträts** | **NICHT vorhanden** |
+| Brillen-Passung, Vergleich mit Foto | **ausstehend** (braucht echtes GLB) |
+| **Reale GPU-FPS auf 4K-Gerät** | **NICHT gemessen** (nur SwiftShader: 4–5 FPS bei 4K, 21 FPS mobil; kein Maßstab) |
 
-Ohne `portrait-points.bin` zeigt die Seite die **2.5D-Foto-Vorschau** (gelb gekennzeichnet). Das ist **nicht** die 3D-Skulptur.
-
-### Warum fehlen die Bilder und das GLB?
-- Die in dieser Sitzung angebundene Bild-Integration (Arcads/Nilsland) meldete **0 verbleibende Credits**; daher wurde nichts generiert und das Foto nicht hochgeladen. Es gibt hier außerdem keine Higgsfield-/Tripo-Anbindung. Es wurde nichts vorgetäuscht.
-- **Direkt nutzbare Prompts:** `prompts/01-front-clay-bust.txt`, `prompts/02-side-clay-bust.txt` (Seitenansicht = KI-Rekonstruktion).
-- Das Foto zeigt eine **honigbraune Schildpatt-Brille**; der Masterprompt verlangt eine **dunkle** Vollrandbrille. Ich bin dem Masterprompt gefolgt (Prompt verlangt „dark full-rim“) — bitte bestätigen, falls die Schildpatt-Optik gewünscht ist.
-
-**Blocker und exakte Handlung: siehe `ASSET-REQUIREMENTS.md`.** Brillen-Standardwerte sind jetzt aus den Proportionen des Referenzfotos (runde Panto-Fassung) abgeleitet.
+Blocker und exakte Handlung: `ASSET-REQUIREMENTS.md`. Das Referenzfoto liegt in `assets-src/` (nicht in `public/`, nicht im Build; es steckt aber noch in der Git-Historie, Commit bd3b6f8).
+`/?asset=test` zeigt eine Primitiv-Büste und ist **nicht das Porträt**.
 
 ## Befehle
 ```
@@ -32,8 +29,9 @@ npm install
 npm run dev                # Entwicklung
 npm run build && npm run preview   # Produktions-Build, http://localhost:4173
 npm run test:fixture       # Primitiv-Testbüste erzeugen + backen -> public/assets/test/
+node scripts/verify-browser.mjs   # optional (playwright): Screenshots 4K/mobil + Buffergröße
 ```
-Testseiten-URLs: `/` (Porträt-Asset oder 2.5D-Vorschau), `/?asset=test` (Pipeline-Test mit Primitiv-Büste, **nicht das Porträt**).
+Testseiten-URLs: `/` (Porträt-Asset, sonst Fehlerzustand), `/?asset=test` (Pipeline-Test mit Primitiv-Büste, **nicht das Porträt**).
 
 ## Echtes Porträt fertigstellen
 1. Prompts aus `prompts/` mit `reference-photo.jpg` in einem Bildgenerator ausführen (Front, dann Seite mit Front als Zusatzreferenz).

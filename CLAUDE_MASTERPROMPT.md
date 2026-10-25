@@ -5,7 +5,7 @@ Du bist Senior Creative Technologist, 3D-Technical Artist und WebGL-Engineer. Ü
 ## Quelle und Ziel
 Original-Workflow: https://www.avivashishta.com/blog/made-of-dots-webgl-point-cloud-portrait
 Referenz-Demo: https://www.avivashishta.com/lab/made-of-dots
-Implementiere den im Artikel beschriebenen Prozess, keine bloße Video- oder 2D-Foto-Attrappe. Im ZIP liegt `public/assets/reference-photo.jpg` als Referenz für die dargestellte Person. Die Ähnlichkeit von Frisur (kurz, silbergrau), markanter dunkler Vollrandbrille, Kopfkontur und schwarzem Rollkragen ist wichtig. Die Gesichtszüge sollen wie im Tutorial für die Skulptur reduziert werden: keine detaillierten Augen, Nase oder Mund; Brillenform, Frisur, Kiefer, Rollkragen erhalten. Keine zusätzlich erfundene Person oder dekorative Elemente.
+Implementiere den im Artikel beschriebenen Prozess, keine bloße Video- oder 2D-Foto-Attrappe. Im ZIP liegt `assets-src/reference-photo.jpg` als Referenz für die dargestellte Person. Die Ähnlichkeit von Frisur (kurz, silbergrau), markanter dunkler Vollrandbrille, Kopfkontur und schwarzem Rollkragen ist wichtig. Die Gesichtszüge sollen wie im Tutorial für die Skulptur reduziert werden: keine detaillierten Augen, Nase oder Mund; Brillenform, Frisur, Kiefer, Rollkragen erhalten. Keine zusätzlich erfundene Person oder dekorative Elemente.
 
 ## Unverzichtbarer Originalablauf
 1. Erstelle aus dem Referenzfoto eine matte monochrom-hellgraue Tonbüste frontal und im exakten 90°-Seitenprofil. Da keine Seitenaufnahme vorhanden ist, kennzeichne die modellierte Seitenansicht als KI-Rekonstruktion. Verwende ein Bildgenerierungswerkzeug mit tatsächlichem Bild-Output. Falls es nicht angebunden ist, generiere nichts vorgeblich und liefere stattdessen direkt nutzbare Bildprompts.
@@ -18,7 +18,7 @@ Implementiere den im Artikel beschriebenen Prozess, keine bloße Video- oder 2D-
 8. Responsive, Touch- und reduced-motion-Verhalten, bei mobilen Geräten reduzierte Punktanzahl oder DPR, GPU-/Speichergrenzen, WebGL-Kontextverlust-Fallback und expliziter Fehlerzustand. Keine unkontrollierten großen Buffer-Uploads.
 
 ## Vorhandenes Projekt
-Dieses ZIP enthält Vite + Three.js: `src/main.js`, `src/style.css`, `scripts/bake-glb.mjs`, `public/assets/reference-photo.jpg`. Die Vorschau rendert ohne GLB ein als 2.5D gekennzeichnetes Foto-Partikelbild. Das ist ausdrücklich noch NICHT die fertige 3D-Lösung und darf nicht als solche ausgegeben werden. Sobald ein echtes GLB vorliegt, wird die echte Binärpunktwolke erstellt und automatisch geladen.
+Dieses ZIP enthält Vite + Three.js: `src/main.js`, `src/style.css`, `scripts/bake-glb.mjs`, `assets-src/reference-photo.jpg`. Die Vorschau rendert ohne GLB ein als 2.5D gekennzeichnetes Foto-Partikelbild. Das ist ausdrücklich noch NICHT die fertige 3D-Lösung und darf nicht als solche ausgegeben werden. Sobald ein echtes GLB vorliegt, wird die echte Binärpunktwolke erstellt und automatisch geladen.
 
 ## Abgabe und Qualitätskontrolle
 Bündele Quellcode, Bildreferenzen, erzeugte Tonansichten (falls tatsächlich erzeugt), GLB (falls tatsächlich erzeugt), Binärasset (falls tatsächlich gebacken), vollständige README, genaue Befehle und Prüfergebnisse in einem ZIP. Richte eine lauffähige Preview ein. Prüfe mit `npm install`, `npm run build`, lade die Seite und kontrolliere Desktop- und Mobilansicht. Keine Platzhalter als fertige Ergebnisse deklarieren. Keine eigenmächtige Integration in bestehende NILSLAND-Projekte; vorerst ausschließlich eigenständige Testseite.

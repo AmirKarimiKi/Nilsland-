@@ -60,8 +60,9 @@ const meanBox = ({ w, L }, x0, y0, x1, y1) => { let s = 0, c = 0; for (let y = y
   const samples = [];
   for (let i = 0; i < 40; i++) { const iv = await page.evaluate(() => window.__dots.intro()); const bb = bbox(lum(await page.screenshot())); samples.push({ iv: +iv.toFixed(2), h: bb?.h ?? 0, w: bb?.w ?? 0 }); if (iv >= 1 && i > 6) break; }
   const final = samples[samples.length - 1], early = samples.filter((s) => s.iv < 0.25 && s.h > 0), mid = samples.filter((s) => s.iv > 0.3 && s.iv < 0.9);
-  const grows = early.length > 0 && early[0].h < 0.6 * final.h && mid.length >= 2 && mid.every((s) => s.h > 0);
-  rec('unfold: ring -> bust is visible over time (silhouette grows, >=2 mid-flight samples)', grows && final.iv === 1, JSON.stringify(samples.map((s) => `${s.iv}:${s.h}`)));
+  const hs = samples.map((s) => s.h).filter((h) => h > 0), mono = hs.every((h, i) => i === 0 || h >= hs[i - 1] - 6);
+  const grows = early.length > 0 && early[0].h < 0.6 * final.h && mid.length >= 1 && mid.every((s) => s.h > 0) && mono;
+  rec('unfold: ring -> bust is visible over time (silhouette grows monotonically, >=1 mid-flight sample)', grows && final.iv === 1, JSON.stringify(samples.map((s) => `${s.iv}:${s.h}`)));
   await ctx.close();
 }
 { // 4b head follows cursor softly (yaw/pitch uniforms sampled at ~25 Hz), light follows cursor

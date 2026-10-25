@@ -10,6 +10,9 @@ const ASSET_DIR = `${BASE}assets/${params.get('asset') === 'test' ? 'test/' : ''
 if (params.has('clean')) document.documentElement.classList.add('clean');   // inspection only: hide UI text for comparison images
 const mobile = matchMedia('(max-width: 720px)').matches || matchMedia('(pointer: coarse)').matches;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// Calibration knobs (defaults are the shipped look; ?size= ?back= ?alpha= ?gain= ?blend=add|normal exist for the comparison series)
+const cal = { size: Number(params.get('size')) || 1.6, back: params.has('back') ? Number(params.get('back')) : 0.55, alpha: Number(params.get('alpha')) || 0.85, gain: Number(params.get('gain')) || 1.3, blend: params.get('blend') || 'normal' };
+const STILL = params.has('still');   // frozen, repeatable state for comparison images: unfold done, no sweep, fixed light, no drift
 const mem = navigator.deviceMemory || 8, cores = navigator.hardwareConcurrency || 8;
 // Hardware-adaptive density: 66k target on capable desktops, fewer on phones / weak devices. ?points=N overrides (test only).
 const tierPoints = mobile ? 36000 : (mem <= 2 || cores <= 2) ? 36000 : 66000;
@@ -48,7 +51,7 @@ const dpr = () => {
 const buffer = { w: 0, h: 0, dpr: 0 };
 function applyResolution() {
   const d = dpr(); renderer.setPixelRatio(d); renderer.setSize(innerWidth, innerHeight);
-  material.uniforms.uRatio.value = renderer.domElement.height / (mobile ? 1000 : 800);   // dot size follows the buffer height, so 4K looks like 720p, only sharper
+  material.uniforms.uRatio.value = (renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.position.z)) / 237.2;   // dot size follows the bust's pixel scale (= H/800 on 16:9; smaller on narrow phones where the bust is width-limited)   // dot size follows the buffer height, so 4K looks like 720p, only sharper
   buffer.w = gl.drawingBufferWidth; buffer.h = gl.drawingBufferHeight; buffer.dpr = d;
   if (window.__dots) window.__dots.buffer = { ...buffer, css: [innerWidth, innerHeight], devicePixelRatio, maxDim };
   console.info(`[dots] drawing buffer ${buffer.w}x${buffer.h} (CSS ${innerWidth}x${innerHeight}, dpr ${d.toFixed(3)}, devicePixelRatio ${devicePixelRatio}, scale ${resScale.toFixed(2)}, max ${maxDim})`);
@@ -172,23 +175,27 @@ async function buildPhotoPreview() {
 // (2) calm interactive state: head turns over the shoulders toward the cursor, cursor light + faint specular,
 // depth cue (nearer dots larger/brighter). No random per-dot motion.
 const material = new THREE.ShaderMaterial({
-  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+  // Normal (alpha) blending: overlapping translucent dots converge to the dot colour instead of summing into hot spots.
+  transparent: true, depthWrite: false, depthTest: false, blending: cal.blend === 'add' ? THREE.AdditiveBlending : THREE.NormalBlending,
   uniforms: {
     uIntro: { value: 0 }, uSpin: { value: 0 }, uSweep: { value: -9 }, uGlint: { value: -9 },
     uLight: { value: new THREE.Vector3(0, 0, 2) }, uLightOn: { value: 0 },
     uHead: { value: new THREE.Vector2(0, 0) }, uBody: { value: 0 },
     uPivot: { value: new THREE.Vector3(0, 0, 0) }, uBounds: { value: new THREE.Vector2(-1.4, 1.4) },
-    uRatio: { value: 1 }, uPointScale: { value: mobile ? 1.15 : 1 }, uRingR
+    uRatio: { value: 1 }, uPointScale: { value: 1 }, uRingR,
+    uSize: { value: cal.size }, uBack: { value: cal.back }, uAlpha: { value: cal.alpha }, uGain: { value: cal.gain }, uRefZ: { value: 5.6 }
   },
   vertexShader: /* glsl */`
     attribute float aSeed; attribute float aKind;
-    uniform float uIntro, uSpin, uSweep, uGlint, uRatio, uPointScale, uLightOn, uBody, uRingR;
+    uniform float uIntro, uSpin, uSweep, uGlint, uRatio, uPointScale, uLightOn, uBody, uRingR, uSize, uBack, uGain, uRefZ;
     uniform vec3 uLight, uPivot; uniform vec2 uHead, uBounds;
     varying float vBright; varying float vSeed; varying float vGlint;
     vec3 yawRot(vec3 v, float a){ float c = cos(a), s = sin(a); return vec3(v.x * c + v.z * s, v.y, -v.x * s + v.z * c); }
     vec3 pitchRot(vec3 v, float a){ float c = cos(a), s = sin(a); return vec3(v.x, v.y * c - v.z * s, v.y * s + v.z * c); }
     void main(){
       vSeed = aSeed; vGlint = 0.;
+      float r1 = aSeed;                                   // size random
+      float r2 = fract(sin(aSeed * 91.7 + 3.1) * 437.58);   // brightness random (independent of r1)
       float h = clamp((position.y - uBounds.x) / (uBounds.y - uBounds.x), 0., 1.);
 
       // (1) one-time unfold: a ring of dots releases top-down (head first) and swirls into the bust.
@@ -196,15 +203,15 @@ const material = new THREE.ShaderMaterial({
       vec3 start = vec3(cos(th), sin(th), 0.) * (uRingR + (fract(aSeed * 7.31) - .5) * .02);
       float delay = .50 * (1. - h) + .10 * aSeed;
       float te = clamp((uIntro - delay) / .40, 0., 1.);
-      float e = 1. - pow(1. - te, 3.);                                     // ease-out cubic
+      float e = 1. - pow(1. - te, 3.);
       vec3 pos = mix(start, position, e);
-      float ang = (1. - e) * 1.25 * (1. - .5 * h);                           // swirl that unwinds to zero
+      float ang = (1. - e) * 1.25 * (1. - .5 * h);
       float ca = cos(ang), sa = sin(ang);
       pos.xy = vec2(pos.x * ca - pos.y * sa, pos.x * sa + pos.y * ca);
-      pos.xy *= 1. + .16 * sin(e * 3.14159);                                 // slight outward arc in flight
-      float flight = sin(e * 3.14159);                                       // 0 at ring and at rest
+      pos.xy *= 1. + .16 * sin(e * 3.14159);
+      float flight = sin(e * 3.14159);
 
-      // (2) head turns over the shoulders: yaw/pitch about a neck pivot, body follows a fraction
+      // (2) head turns over the shoulders
       vec3 nrm = normal;
       float wHead = smoothstep(uPivot.y - .15, uPivot.y + .25, pos.y);
       float yaw = mix(uBody, uHead.x, wHead);
@@ -216,55 +223,58 @@ const material = new THREE.ShaderMaterial({
 
       vec4 world = modelMatrix * vec4(pos, 1.);
       vec3 wn = normalize(mat3(modelMatrix) * nrm);
+      vec3 V = normalize(cameraPosition - world.xyz);
+      float facing = dot(wn, V);
 
-      // cursor = one soft point light in front of the bust (diffuse + a faint specular reflex)
+      // lighting terms of the reference brightness model:  b = .3 + key*.14 + lit*1.5 + rim*.12
+      float key = max(0., dot(wn, normalize(vec3(-.45, .65, .62))));
+      float rim = pow(1. - abs(facing), 2.);
       vec3 toL = uLight - world.xyz;
       float dist = length(toL); vec3 L = toL / max(dist, .001);
-      float facing = .22 + .78 * max(0., dot(wn, L));
-      float reach = pow(max(0., 1. - dist * .62), 2.0);
-      float lit = reach * facing * uLightOn;
+      float reach = pow(max(0., 1. - dist * .42), 2.);
+      float lit = reach * (.35 + .65 * max(0., dot(wn, L))) * uLightOn * .62;   // wide, soft pool: peak ~.6 -> about +.9 on the base (capped below white)
       float spec = pow(max(0., dot(reflect(-L, wn), vec3(0., 0., 1.))), 16.) * pow(max(0., 1. - dist * .55), 2.) * uLightOn;
-      vec3 V = normalize(cameraPosition - world.xyz);
-      float fv = dot(wn, V);
-      float rim = pow(1. - abs(fv), 2.2);
-      float vis = mix(.10, 1., smoothstep(-.10, .30, fv));                   // surfaces turned away dim out: no see-through shell, the volume reads
-      float hemi = .88 + .12 * wn.y;                                          // very soft top-down gradient
-      float key = max(0., dot(wn, normalize(vec3(-.45, .65, .62))));
       float sweep = exp(-pow((world.y + world.x * .18 - uSweep) * 3.2, 2.));
-      float near = clamp(.5 + .5 * world.z / 1.2, 0., 1.);                   // depth cue: nearer dots larger/brighter
+      float near = clamp(.5 + .5 * world.z / 1.2, 0., 1.);
 
-      float base = .24;
-      float size = 1.8 + aSeed * aSeed * 3.6;                                  // many fine dots, few large ones
+      float b = .30 + key * .14 + lit * 1.5 + rim * .12 + sweep * .45;
+      float sizeK = 1. + 2. * pow(r1, 2.2);                                  // 1x ... 3x size variation, most dots fine
       float extra = 0.;
-      if (aKind > .5 && aKind < 1.5) { base = .56; size += .25; extra = spec * .5; }   // spectacle rim
+      if (aKind > .5 && aKind < 1.5) { b += .12; sizeK *= .9; extra = spec * .3; }       // spectacle rim: a touch brighter
       if (aKind > 1.5) {                                                              // lens: faint, glint + cursor reflex
         float glint = exp(-pow((world.x - uGlint) * 5., 2.));
-        base = .10 + glint * .55; size = 2.0; extra = spec * 1.3 + lit * .7; vGlint = clamp(max(glint, spec * .9 + lit * .25), 0., 1.);
+        b = .06 + glint * .5; sizeK = 1.1; extra = spec * .9 + lit * .6; vGlint = clamp(max(glint, spec * .8 + lit * .3), 0., 1.);
       }
-      float b = (base + lit * 3.2 + spec * 1.3 + extra + rim * .20 + key * .12 + sweep * .55) * (.82 + aSeed * .34);
-      b *= (.70 + .50 * near) * vis * hemi;
-      b *= mix(.05, 1., smoothstep(0., .28, te)) * (1. + .6 * flight);
-      vBright = min(1.5, b);
+      b += extra;
+      b *= mix(uBack, 1., smoothstep(-.3, .25, facing));                       // surfaces turned away dim down
+      b *= .7 + r2 * .5;                                                       // per-dot brightness variation
+      b *= .9 + .2 * near;                                                     // subtle depth cue
+      b *= mix(.30, 1., smoothstep(0., .28, te)) * (1. + .5 * flight);
+      vBright = min(1.0, b * uGain);   // hard ceiling: no blown highlights
       vec4 view = viewMatrix * world;
       gl_Position = projectionMatrix * view;
-      float psz = (size * (.82 + .30 * near) * (.72 + .28 * vis) * (1. + .30 * lit) + sweep * 1.0 + flight * .8) * uRatio * uPointScale * 5. / -view.z;
-      gl_PointSize = clamp(psz, 1., 10. * max(1., uRatio));
+      // sprite diameter in device pixels: uSize css-px-at-800px-height * ratio, perspective-scaled, depth cue, never below a soft-gaussian-safe 3 px
+      float psz = (uSize * sizeK * (.88 + .24 * near) * (1. + .25 * lit) + sweep * .8 + flight * .8) * uRatio * uPointScale * uRefZ / -view.z;
+      gl_PointSize = clamp(psz, 3., 18. * max(1., uRatio));
     }`,
   fragmentShader: /* glsl */`
-    precision mediump float; varying float vBright; varying float vSeed; varying float vGlint;
+    precision mediump float; varying float vBright; varying float vSeed; varying float vGlint; uniform float uAlpha;
     void main(){
       float r = length(gl_PointCoord - .5);
-      float a = exp(-r * r * 16.) * .88;            // soft gaussian sprite
-      if (a < .018) discard;
-      vec3 tint = mix(vec3(.74,.76,.79), vec3(.88,.90,.93), vSeed);
-      tint = mix(tint, vec3(.62,.74,.98), vGlint * .8);   // cool reflex on the lenses only
+      float a = exp(-r * r * 16.);                   // gaussian falloff from the reference
+      a *= uAlpha * smoothstep(.5, .42, r);          // reaches exactly 0 at the sprite edge: no visible square/disc
+      if (a < .006) discard;
+      vec3 tint = mix(vec3(.80,.82,.85), vec3(.90,.92,.95), vSeed);
+      tint = mix(tint, vec3(.66,.76,.98), vGlint * .7);   // cool reflex on the lenses only
       gl_FragColor = vec4(tint * vBright, a);
     }`
 });
 
+material.uniforms.uRefZ.value = camera.position.z;
+
 // ---------------------------------------------------------------- loader ring (dots, driven by real bytes) + drifting dust
 const softPoint = /* glsl */`precision mediump float; varying float vB;
-  void main(){ float r = length(gl_PointCoord - .5); float a = exp(-r * r * 16.) * .88; if (a < .018) discard; gl_FragColor = vec4(vec3(.80,.82,.86) * vB, a); }`;
+  void main(){ float r = length(gl_PointCoord - .5); float a = exp(-r * r * 16.) * smoothstep(.5, .42, r); if (a < .006) discard; gl_FragColor = vec4(vec3(.80,.82,.86) * vB, a); }`;
 const RING_N = 720, ringGeo = new THREE.BufferGeometry();
 ringGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(RING_N * 3), 3));
 ringGeo.setAttribute('aAng', new THREE.BufferAttribute(Float32Array.from({ length: RING_N }, (_, i) => i / RING_N), 1));
@@ -275,7 +285,7 @@ const ringMat = new THREE.ShaderMaterial({
     void main(){ float a = aAng * 6.2831853 - 1.5707963; vec3 p = vec3(cos(a), -sin(a), 0.) * uR;
       vB = (.14 + .86 * smoothstep(0., .02, uProg - aAng)) * uAlpha;
       vec4 view = modelViewMatrix * vec4(p, 1.); gl_Position = projectionMatrix * view;
-      gl_PointSize = clamp(3.4 * uRatio * 5. / -view.z, 1.5, 8.); }`,
+      gl_PointSize = clamp(4.6 * uRatio * 5.6 / -view.z, 3., 12.); }`,
   fragmentShader: softPoint
 });
 const ring = new THREE.Points(ringGeo, ringMat); ring.frustumCulled = false; scene.add(ring);
@@ -293,7 +303,7 @@ const dustMat = new THREE.ShaderMaterial({
       float near = clamp(.5 + .5 * p.z / 1.4, 0., 1.);
       vB = (.07 + .12 * aSeed * aSeed) * (.55 + .9 * near) * uDust;
       vec4 view = modelViewMatrix * vec4(p, 1.); gl_Position = projectionMatrix * view;
-      gl_PointSize = clamp((1.3 + 2.2 * aSeed * aSeed) * (.7 + .6 * near) * uRatio * 5. / -view.z, 1., 6. * max(1., uRatio)); }`,
+      gl_PointSize = clamp((2.6 + 3. * aSeed * aSeed) * (.7 + .6 * near) * uRatio * 5.6 / -view.z, 3., 9. * max(1., uRatio)); }`,
   fragmentShader: softPoint
 });
 const dust = new THREE.Points(dustGeo, dustMat); dust.frustumCulled = false; scene.add(dust);
@@ -301,8 +311,8 @@ let ringShown = 0;
 function ambient(t, elapsed, dtS) {                         // ring progress + dust drift: shared by the pre-load loop and the main loop
   ringShown += (ringTarget - ringShown) * (1 - Math.exp(-dtS * 9)); if (ringTarget >= 1 && ringShown > .995) ringShown = 1;
   ringMat.uniforms.uProg.value = ringShown * 1.0005;
-  ringMat.uniforms.uAlpha.value = 1 - THREE.MathUtils.smoothstep(material.uniforms.uIntro.value, 0.02, 0.2);
-  dustMat.uniforms.uTime.value = reducedMotion ? 0 : t / 1000;
+  ringMat.uniforms.uAlpha.value = 1 - THREE.MathUtils.smoothstep(material.uniforms.uIntro.value, 0.10, 0.45);   // the dot ring stays until the bust dots have emerged
+  dustMat.uniforms.uTime.value = (reducedMotion || STILL) ? 0 : t / 1000;
   dustMat.uniforms.uDust.value = Math.min(1, dustMat.uniforms.uDust.value + dtS / 2.5);
 }
 let preT = 0;
@@ -322,7 +332,7 @@ function onPointer(e) {
 addEventListener('pointermove', onPointer, { passive: true });
 addEventListener('pointerdown', onPointer, { passive: true });
 document.documentElement.addEventListener('pointerleave', () => { pointer.active = false; });   // cursor left the window: head eases back, light parks
-addEventListener('resize', () => { applyResolution(); fitCamera(); });
+addEventListener('resize', () => { applyResolution(); fitCamera(); material.uniforms.uRefZ.value = camera.position.z; });
 applyResolution();
 renderer.domElement.addEventListener('webglcontextlost', (e) => {
   e.preventDefault(); renderer.setAnimationLoop(null);
@@ -350,7 +360,7 @@ const lightPark = new THREE.Vector3();
 
 function tick(t) {
   const dtS = Math.min(0.1, Math.max(0.001, (t - (prevT || t - 16)) / 1000)); prevT = t;
-  const elapsed = reducedMotion ? 99 : (t - begin) / 1000;
+  const elapsed = (reducedMotion || STILL) ? 99 : (t - begin) / 1000;
   const u = material.uniforms, inspect = params.has('yaw');
   ambient(t, elapsed, dtS);
   u.uIntro.value = reducedMotion ? 1 : Math.min(1, Math.max(0, (elapsed - HOLD) / UNFOLD));
@@ -379,6 +389,8 @@ function tick(t) {
     ndc.set(pointer.x, pointer.y, .5).unproject(camera); dirV.copy(ndc).sub(camera.position).normalize();
     lightTarget.copy(camera.position).addScaledVector(dirV, (camera.position.z - 0.95) / -dirV.z);
     intensity = 1;
+  } else if (STILL) {
+    lightTarget.set(-0.55, 0.55, .95); intensity = 1;
   } else {
     const k = reducedMotion ? 0 : elapsed;
     lightTarget.set(Math.sin(k * .55) * .9, .35 + Math.cos(k * .41) * .75, .95);
@@ -424,6 +436,7 @@ async function start() {
   }
   el.note.textContent = noteText;
   dotCount = result.count;
+  material.uniforms.uSize.value = cal.size * Math.sqrt(66000 / result.count);   // keep the dot coverage constant when fewer dots are drawn (mobile, ?points=)
   setProgress(100);
   for (let w = 0; w < 40 && ringShown < 0.99 && !reducedMotion; w++) await new Promise((res) => setTimeout(res, 50));   // let the ring finish filling (max 2 s)
   // head-turn pivot (neck) and height range, in the normalised world units of the baked cloud

@@ -7,7 +7,8 @@ const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_PATH 
 const base = process.argv[2] || 'http://localhost:4173';
 const only = process.argv[3]; const cases = [
   { name: 'portrait-4k-3840x2160', url: '/?fixedres', w: 3840, h: 2160, dsf: 1 },
-    { name: 'portrait-mobile-390x844', url: '/?fixedres', w: 390, h: 844, dsf: 2, mobile: true },
+    { name: 'portrait-1080p-1920x1080', url: '/?fixedres', w: 1920, h: 1080, dsf: 1 },
+  { name: 'portrait-mobile-390x844', url: '/?fixedres', w: 390, h: 844, dsf: 2, mobile: true },
   { name: 'portrait-desktop-1280x720', url: '/?fixedres', w: 1280, h: 720, dsf: 1 },
 ];
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });

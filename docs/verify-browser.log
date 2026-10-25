@@ -1,3 +1,4 @@
 portrait-4k-3840x2160 {"dots":{"count":66000,"mode":"GLB POINT CLOUD","ready":true,"buffer":{"w":3840,"h":2160,"dpr":1,"css":[3840,2160],"devicePixelRatio":1,"maxDim":8192},"fps":3},"canvas":[3840,2160],"err":null} []
-portrait-mobile-390x844 {"dots":{"count":36000,"mode":"GLB POINT CLOUD","ready":true,"buffer":{"w":675,"h":1461,"dpr":1.5,"css":[450,974],"devicePixelRatio":2,"maxDim":8192},"fps":19},"canvas":[675,1461],"err":null} []
-portrait-desktop-1280x720 {"dots":{"count":66000,"mode":"GLB POINT CLOUD","ready":true,"buffer":{"w":1280,"h":720,"dpr":1,"css":[1280,720],"devicePixelRatio":1,"maxDim":8192},"fps":14},"canvas":[1280,720],"err":null} []
+portrait-1080p-1920x1080 {"dots":{"count":66000,"mode":"GLB POINT CLOUD","ready":true,"buffer":{"w":1920,"h":1080,"dpr":1,"css":[1920,1080],"devicePixelRatio":1,"maxDim":8192},"fps":8},"canvas":[1920,1080],"err":null} []
+portrait-mobile-390x844 {"dots":{"count":36000,"mode":"GLB POINT CLOUD","ready":true,"buffer":{"w":675,"h":1461,"dpr":1.5,"css":[450,974],"devicePixelRatio":2,"maxDim":8192},"fps":18},"canvas":[675,1461],"err":null} []
+portrait-desktop-1280x720 {"dots":{"count":66000,"mode":"GLB POINT CLOUD","ready":true,"buffer":{"w":1280,"h":720,"dpr":1,"css":[1280,720],"devicePixelRatio":1,"maxDim":8192},"fps":9},"canvas":[1280,720],"err":null} []

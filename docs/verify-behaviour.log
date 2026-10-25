@@ -2,13 +2,13 @@ PASS loader shows percentage then completes ["0%","100%"]
 PASS missing asset shows explicit error state PORTRAIT-ASSET FEHLT — public/assets/portrait-points.bin wur
 PASS reduced motion: intro skipped (uIntro=1), no sweep, no head turn, no console errors intro=1 sweep=-9 yaw=0 errors=0
 PASS normal motion: intro plays then completes uIntro 0.000 -> 1
-PASS unfold: ring -> bust is visible over time (silhouette grows, >=2 mid-flight samples) ["0:152","0:133","0.16:181","0.52:281","0.78:319","0.99:322","1:322","1:323"]
+PASS unfold: ring -> bust is visible over time (silhouette grows monotonically, >=1 mid-flight sample) ["0:144","0.05:0","0.22:216","0.56:302","0.85:324","1:324","1:324","1:324"]
 PASS head turns toward cursor (right): final yaw 0.25-0.45 rad yaw=0.367
-PASS head follow is soft: speed <= 1.5 rad/s, no overshoot, visible lag maxSpeed=1.21 rad/s overshoot=1.000 early=0.056
-PASS swinging the cursor to the other side reverses the turn smoothly yaw=-0.367 maxSpeed=1.36 rad/s
-PASS cursor light pool: lit region >= 1.25x brighter (head and chest) head x1.66 chest x1.65
+PASS head follow is soft: speed <= 1.5 rad/s, no overshoot, visible lag maxSpeed=1.11 rad/s overshoot=1.000 early=0.055
+PASS swinging the cursor to the other side reverses the turn smoothly yaw=-0.366 maxSpeed=1.43 rad/s
+PASS cursor light pool: lit region >= 1.25x brighter (head and chest) head x1.32 chest x1.34
 PASS loader ring (WebGL dots) has the 66 px radius of the CSS ring ring radius = 66.0 px
-PASS ambient dust drifts slowly (time advances) dust time 0.7 -> 3.2, 900 dust dots
+PASS ambient dust drifts slowly (time advances) dust time 0.7 -> 3.1, 900 dust dots
 PASS reduced motion: dust is frozen 
 PASS touch: tap is handled, mobile uses reduced dots dots=36000 buffer=675x1461
 PASS context loss shows a message, restore resumes rendering WEBGL-KONTEXT VERLOREN — warte auf Wiede -> PORTRAIT - PHOTO-SILHOUETTE RE

@@ -2,27 +2,22 @@
 
 **Einordnung:** Die Büste ist eine **fotoabgeleitete Näherung** (lokal aus dem einen Foto gebaut), **keine** identitätsgetreue KI-3D-Rekonstruktion und **kein** Meshy/Higgsfield/Tripo-Modell. Tiefe, Seitenprofil, Rückseite und Haarrelief sind **geschätzt**.
 
-## Visuelle Korrektur (Stand dieses Commits)
-**Referenz:** Artikel und Demo (`avivashishta.com`) sind weiterhin **nicht erreichbar** (Verbindung abgelehnt). Ein Direktvergleich war daher **nicht möglich**; „Step 6“ des Artikels konnte nicht gelesen werden. Alle Einstellungen folgen den im Auftrag und im Masterprompt dokumentierten Vorgaben (weicher Gauß-Sprite `exp(-r²·16)`, unterschiedliche Größen, zurückhaltende Grundhelligkeit, Tiefenstufung, Staub, Korn), nicht einer Messung am Original.
+## Korrektur der Partikelqualität (aktueller Stand)
+**Quelle:** Der Artikel ist von hier aus weiterhin nicht erreichbar. Die im Auftrag zitierten Shader-Zeilen (`b = .3 + key*.14 + lit*1.5 + rim*.12`, `b *= mix(.55, 1., smoothstep(-.3, .25, facing))`, `b *= .7 + r2*.5`, `a = exp(-r*r*16.)`) wurden **wie genannt übernommen, aber nicht gegen den Artikel geprüft**. Annahmen: `facing = dot(Normale, Blickrichtung)`; `r2` = zweite, von der Größe unabhängige Zufallszahl pro Punkt; `key` = schwaches festes Seitenlicht; `rim` = `(1-|facing|)²`. Größenvariation 1×…3× (`1 + 2·r1^2,2`).
 
-**1. Geometrie:** *Nicht ersetzt.* Ein aus Tonbüsten-Ansichten rekonstruiertes Modell setzt zwei externe Schritte voraus (Bildgenerierung der Front-/Seitenansicht und Multi-Image-to-3D); beide sind in dieser Umgebung blockiert (Arcads 0 Credits, Higgsfield/Meshy/Tripo/Hugging Face nicht erreichbar, keine GPU). Die lokale Silhouetten-Büste bleibt die Platzhalter-Näherung und ist **nicht** gleichwertig. Sie ist weiterhin die größte verbleibende Abweichung vom Original (siehe unten). `prompts/01–03` und `npm run integrate` sind vorbereitet.
+**Ursache der „Sandkörner“ (gemessen am Bild):** Vorher wurden Sprites kleiner als 1–3 px mit Gauß-Profil gezeichnet; bei so wenigen Pixeln wird aus dem Gauß ein harter 1-px-Punkt. Dazu additive Überlagerung (Fassung/Cursor-Bereich liefen in reines Weiß, siehe A im Vergleich), `lit·3,2` und zufällig verklumpte Punkte. **Änderungen:** Sprite-Durchmesser mindestens 3 px (der Gauß ist dann tatsächlich sichtbar), Alpha-Blending statt additiv (überlagernde Punkte nähern sich der Punktfarbe, summieren sich nicht zu Flecken), Alpha geht am Sprite-Rand exakt auf 0, Helligkeit hart bei 1,0 gedeckelt, Cursor-Pool breit und weich (Spitze ≈ +0,9 auf Grundhelligkeit 0,3 statt +4,8), Punktgröße folgt dem Pixelmaßstab der Büste (auch auf schmalen Handys), Rückseiten nach der Formel auf 55 % gedimmt, Depth-Test aus (weiche Ränder würden sonst Quadrate verdecken).
 
-**2. Partikel-Shader / Verteilung:** Dots nach dem Bake gleichmäßig verteilt (Poisson-Disc-Ausdünnung: 186k area-uniforme Kandidaten → 62k Oberflächenpunkte, Mindestabstand 0,0049) statt zufällig verklumpt; Größen `1,8 + s²·3,6` (viele feine, wenige große), Gauß-Sprite, Grundhelligkeit 0,24; Flächen, die vom Betrachter abgewandt sind, werden ausgeblendet (vorher schien die ganze Rückseite durch die Vorderseite). Die Punkte bleiben nach der Entfaltung auf der Oberfläche (keine zusätzlichen Zufallsbewegungen).
+**Vergleichsreihe** (identisch: 1920×1080, `?still` = eingefrorener Zustand ohne Sweep, gleiches Licht, gleicher Ausschnitt): `docs/series-full-1920x1080.jpg` (A bisherige Version, B 44.000, C 55.000, D 66.000) und `docs/series-closeup-1920x1080.jpg` (jeweils 1:1-Pixelausschnitt, 3× vergrößert), `docs/closeup-4k-native.jpg` (3840×2160 nativ). Die Punktgröße wird mit `√(66.000/N)` nachgeführt, damit die Abdeckung gleich bleibt.
+- **A:** Fassung und Cursor-Bereich zu reinem Weiß ausgebrannt, harte Pixel-Punkte, ungleichmäßig.
+- **B 44.000:** gleichmäßig grau und weich, aber einzelne Punkte deutlich sichtbar, Oberfläche körniger.
+- **C 55.000:** besser, noch leicht gepunktet.
+- **D 66.000:** feinste, zusammenhängendste Oberfläche, Fassung ohne Überstrahlung, bester Volumeneindruck. **Gewählt:** D (66.000). Mehr Punkte sind hier nicht „besser an sich“; der Gewinn kommt aus der Kalibrierung, bei 66.000 ist nur die Textur feiner.
 
-**3. Atmosphäre:** 900 Staubpunkte (380 mobil) im Raum, sehr langsam driftend (±0,16 Einheiten, Perioden 60–150 s), nach Tiefe gestaffelt und sehr schwach; Filmkorn (CSS, leicht versetzt, 6 % Deckkraft); weiche Helligkeitsabstufung (Hemisphäre ±12 %), Kontur-Rim für die Trennung von Kopf, Kragen und Hintergrund. Reduced Motion: Staub und Korn stehen still.
+**Messwerte:** Cursor-Licht hebt die beleuchtete Region um ×1,3 an (Kopf ×1,30 / Brust ×1,34 gemessen im Bild), ohne Überstrahlung; Verhaltenstests 14/14; Drawing-Buffer 3840×2160, 1920×1080, 1280×720 und mobil (36.000 Punkte, 675×1461) geprüft: `docs/screenshots/`. Aufzeichnung: `docs/demo-final.mp4` (Software-GL ~11 FPS, auf einer GPU flüssiger).
 
-**4. Mausinteraktion:** Kopfdrehung ±24° mit 0,5 s Nachlauf und Geschwindigkeitsgrenze (ruhiger als zuvor), Parallaxe, Cursor-Licht knapp vor der Oberfläche; die Wirkung wurde im Bild gemessen (Pool ×1,66 Kopf / ×1,65 Brust gegenüber Cursor in der Ecke), nicht nur an Winkeln.
+**Dynamik unverändert:** Entfaltung aus dem Punkt-Ring, ein Sweep, Cursor-Licht, sanfte Kopfdrehung, kein zusätzliches Oberflächen-Flimmern. Staub und Korn sind Raum-/Bildschirmelemente (nicht Oberflächenpunkte).
 
-**5. Intro:** Der Lade-Ring besteht jetzt aus Punkten (720) im selben Radius wie der frühere CSS-Ring (66 px, getestet), füllt sich mit den echten geladenen Bytes und geht ohne Bruch in die Entfaltung über: derselbe Ring, die Dots lösen sich von oben nach unten und schwingen in die Büste; danach ein Sweep, dann Ruhe.
-
-**Warum das vorherige Ergebnis statisch, flach und uninteressant wirkte (am Material belegt):**
-1. Die Rückseite des Kopfes schien mit voller Helligkeit durch die Vorderseite; Drehungen verschoben Rauschen über Rauschen und das Volumen verschwand (jetzt abgewandte Flächen ausgeblendet).
-2. Zufällig verteilte Punkte klumpen und lassen Lücken; das wirkte wie Sensorrauschen statt wie eine feine Oberfläche (jetzt gleichmäßig verteilt).
-3. Fast keine Tonwerte: glatte, merkmalslose Form + nahezu konstante Helligkeit (jetzt Hemisphäre, Rim, Tiefenstufung).
-4. Ein leerer schwarzer Raum ohne Tiefenanker (jetzt Staub + Korn); Lade-Ring und Büste waren zwei getrennte Elemente (jetzt ein Ring).
-5. **Bleibende Hauptursache:** die Geometrie. Eine glatte, eiförmige Silhouette hat keine Sekundärstruktur (Haarsträhnen, Kragenfalten, Gesichtsflächen), die die Punkte beschreiben könnten. Das kann nur ein aus Tonbüsten-Ansichten gebautes Modell beheben (blockiert).
-
-**Vorher/Nachher:** `docs/before-after.mp4` (links Commit 884bc0a, rechts Nachher, gleiche Cursorfahrt und gleicher gedrosselter Ladevorgang; danach Nahaufnahme der Partikel, 3× Zoom). Software-Rendering, ~12 FPS, daher ruckeliger als auf einer GPU. Die Vergleichsansicht ist wahrnehmbar, aber **dezent**: der größte sichtbare Gewinn liegt in Ruhe/Volumen (keine Durchscheinung, gleichmäßige Dots, durchgehender Ring); die Form selbst ist unverändert.
+**Weiterhin offen:** Geometrie (keine Tonbüsten-basierte Rekonstruktion möglich), kein Vergleich mit Original/Demo, keine reale GPU-Messung.
 
 ## Interaktive Animation (Überarbeitung)
 **Phase 1 – einmalige Entfaltung (≈4,4 s):** ein Ring aus Punkten dreht sich 0,8 s, löst sich dann von oben nach unten (Kopf zuerst, danach Kragen und Schultern) und fliegt in einem kurzen, sich auflösenden Schwung in die Büste (ease-out, zeitversetzt, Punkte in Flug etwas größer/heller). Danach genau ein Licht-Sweep.

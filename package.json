@@ -1,0 +1,5 @@
+{
+  "name":"portrait-of-dots-claude","version":"0.1.0","private":true,"type":"module",
+  "scripts":{"dev":"vite --host 0.0.0.0","build":"vite build","preview":"vite preview","bake":"node scripts/bake-glb.mjs","test:fixture":"node scripts/make-test-glb.mjs && node scripts/bake-glb.mjs test/test-bust.glb --out-dir public/assets/test --label \"TEST FIXTURE: primitive bust, NOT the portrait\" --glasses 0,0.62,0.09,0.2,0.03"},
+  "dependencies":{"three":"^0.180.0"},"devDependencies":{"vite":"^7.1.0"}
+}

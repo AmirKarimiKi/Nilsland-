@@ -1,0 +1,24 @@
+{
+  "label": "TEST FIXTURE: primitive bust, NOT the portrait",
+  "count": 66000,
+  "stride": 10,
+  "bytes": 660000,
+  "extent": 1.8789232000846048,
+  "size": [
+    1.6392878139066416,
+    1.8789232000846048,
+    0.9550904539477281
+  ],
+  "center": [
+    0.000007012810786743984,
+    0.15946266622812738,
+    0.017676791005869164
+  ],
+  "kinds": {
+    "surface": 63030,
+    "rim": 2138,
+    "lens": 832
+  },
+  "removedNative": 41,
+  "source": "test-bust.glb"
+}

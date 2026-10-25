@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="theme-color" content="#060608"/>
+<title>Made of Dots — Portrait Study</title>
+</head>
+<body>
+<div id="app">
+  <div id="loader" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <div class="ring"><i class="arc" id="arc"></i><span id="pct">0%</span></div>
+    <div id="status">PORTRAIT / LOADING</div>
+  </div>
+  <div class="veil"></div>
+  <div id="note"></div>
+  <div id="hint">MOVE THE CURSOR TO FIND THE LIGHT</div>
+  <div id="panel" hidden>
+    <button id="replay" type="button">REPLAY</button>
+    <span id="stats"></span>
+  </div>
+  <div id="error" hidden role="alert"></div>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

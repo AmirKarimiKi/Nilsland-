@@ -28,3 +28,6 @@ node scripts/check-bake.mjs       # prüft 66.000 Punkte, 660.000 Byte, Fassungs
 npm run build && npm run preview  # danach: node scripts/verify-browser.mjs  (4K-/Mobil-Screenshots, Buffergröße)
 ```
 Danach: Brille im Nahausschnitt gegen das Foto prüfen (Linsenradius, Abstand, Sitz auf dem Nasenrücken, Bügel), Vorder- und Seitenansicht kontrollieren, auf einem echten 4K-Display FPS messen, dann committen und pushen. `assets-src/bust.glb` ist per `.gitignore` nicht im Repo; `portrait-points.bin` und `portrait-meta.json` werden committet.
+
+## Hinweis zur Identitätstreue (Prompts)
+Der ursprüngliche Masterprompt (`prompts/01`, `02`) verlangt ein *gesichtsloses* Gesicht ohne Augen, Nase, Mund. Das widerspricht der aktuellen Anforderung „eindeutig wiedererkennbar“. Für Wiedererkennbarkeit stattdessen `prompts/03` (Front) und `prompts/04` (Seite, KI-Rekonstruktion) verwenden. Ob das Ergebnis die Person tatsächlich trifft, lässt sich erst am erzeugten Bild/GLB beurteilen.

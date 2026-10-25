@@ -1,0 +1,4 @@
+Identity-faithful variant (use this if the person must be clearly recognisable; it overrides the "featureless face" rule of 01).
+Attach: assets-src/reference-photo.jpg
+
+A premium monochromatic matte light-grey clay sculpture of the exact man in the attached portrait, head and shoulders. Keep his identity: the precise short swept-back hairstyle with the same hairline and parting, forehead height, eyebrow shape, eye shape and spacing, nose length and width, mouth width with a calm closed neutral expression (not the broad smile), jaw and chin shape, cheek volume, ear position, neck and high turtleneck collar, and his round full-rim panto glasses with the same lens size, spacing and bridge. Sculpted in a single uniform matte grey clay, no colour, no skin tone, no teeth, no text. Physically plausible 3D sculpt, pure white seamless background, soft even studio light, perfectly frontal orthographic camera at eye level, full bust uncropped.

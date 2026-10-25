@@ -10,7 +10,10 @@
     "bake": "node scripts/bake-glb.mjs",
     "test:fixture": "node scripts/make-test-glb.mjs && node scripts/bake-glb.mjs test/test-bust.glb --out-dir public/assets/test --label \"TEST FIXTURE: primitive bust, NOT the portrait\" --glasses 0,0.62,0.09,0.2,0.03",
     "check:glb": "node scripts/inspect-glb.mjs",
-    "integrate": "node scripts/inspect-glb.mjs assets-src/bust.glb && node scripts/bake-glb.mjs assets-src/bust.glb --label \"PORTRAIT - PHOTO-SILHOUETTE RECONSTRUCTION (LOCAL, NOT MESHY)\" && node scripts/check-bake.mjs"
+    "integrate": "node scripts/inspect-glb.mjs assets-src/bust.glb && node scripts/bake-glb.mjs assets-src/bust.glb --label \"PORTRAIT - PHOTO-SILHOUETTE RECONSTRUCTION (LOCAL, NOT MESHY)\" && node scripts/check-bake.mjs",
+    "check-bake": "node scripts/check-bake.mjs",
+    "verify-browser": "node scripts/verify-browser.mjs",
+    "verify-behaviour": "node scripts/verify-behaviour.mjs"
   },
   "dependencies": {
     "three": "^0.180.0"

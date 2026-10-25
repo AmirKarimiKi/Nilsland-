@@ -194,6 +194,7 @@ const material = new THREE.ShaderMaterial({
       float facing = .35 + .65 * max(0., dot(wn, toL / max(dist, .001)));
       float lit = pow(max(0., 1. - dist * .52), 3.) * facing * uLightOn;
       float rim = pow(1. - abs(wn.z), 2.);
+      float key = max(0., dot(wn, normalize(vec3(-.45, .65, .62))));   // faint fixed key light (spec: subtle key/rim/cursor accents)
       // One soft light sweep after the unfold.
       float sweep = exp(-pow((world.y + world.x * .18 - uSweep) * 3.2, 2.));
 
@@ -204,7 +205,7 @@ const material = new THREE.ShaderMaterial({
         float glint = exp(-pow((world.x - uGlint) * 5., 2.));
         base = .10 + glint * .55; size = 2.0; vGlint = glint;
       }
-      vBright = min(1.15, (base + lit * .75 + rim * .10 + sweep * .55) * (.86 + aSeed * .28));
+      vBright = min(1.15, (base + lit * .75 + rim * .10 + key * .16 + sweep * .55) * (.86 + aSeed * .28));
       vec4 view = viewMatrix * world;
       gl_Position = projectionMatrix * view;
       gl_PointSize = clamp((size + sweep * 1.0) * uRatio * uPointScale * 5. / -view.z, 1., 10. * max(1., uRatio));
@@ -249,7 +250,7 @@ const INTRO = 2.4, SWEEP_AT = 2.6, SWEEP_LEN = 1.9;
 function tick(t) {
   const elapsed = reducedMotion ? 99 : (t - begin) / 1000;
   const u = material.uniforms;
-  u.uIntro.value = Math.min(1, elapsed / INTRO);
+  u.uIntro.value = Math.min(1, Math.max(0, elapsed / INTRO));
   const sw = (elapsed - SWEEP_AT) / SWEEP_LEN;
   u.uSweep.value = reducedMotion ? -9 : (sw >= 0 && sw <= 1 ? 1.9 - sw * 3.8 : -9);   // single pass, then rest
   const g = (elapsed - 6) % 11 / 1.6;                                              // glasses glint: brief, every ~11 s
@@ -310,6 +311,6 @@ async function start() {
   begin = performance.now();
   el.replay.addEventListener('click', () => { begin = performance.now(); material.uniforms.uLightOn.value = 0; });
   renderer.setAnimationLoop(tick);
-  window.__dots = { count: dotCount, mode: modeLabel, ready: true, buffer: { ...buffer, css: [innerWidth, innerHeight], devicePixelRatio, maxDim } }; // used by the automated check
+  window.__dots = { intro: () => material.uniforms.uIntro.value, sweep: () => material.uniforms.uSweep.value, count: dotCount, mode: modeLabel, ready: true, buffer: { ...buffer, css: [innerWidth, innerHeight], devicePixelRatio, maxDim } }; // used by the automated check
 }
 start().catch((err) => fail(`FEHLER BEIM START — ${err.message || err}`));

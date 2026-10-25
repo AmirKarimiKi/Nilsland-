@@ -1,0 +1,52 @@
+== check:glb
+  1.435,
+  0.753
+ ],
+ "center": [
+  0.056,
+  0.716,
+  -0.023
+ ],
+ "upright": true
+}
+WARN: head centre is -0.108 off the bbox centre in X (tilted or off-centre)
+Check finished with warnings (review before baking).
+== integrate
+ "upright": true
+}
+WARN: head centre is -0.108 off the bbox centre in X (tilted or off-centre)
+Check finished with warnings (review before baking).
+Glasses: centre (-0.050, 0.940), lensR 0.108, spacing 0.268, tilt 1.70 deg, faceZ 0.354; removed 60 native points
+Wrote 66000 dots (660000 bytes) to public/assets, extent 1.4868
+{
+  points: 66000,
+  bytes: 660000,
+  kinds: { surface: 62040, rim: 2851, lens: 1109 },
+  quantRange: [ 0, 65535 ],
+  label: 'PORTRAIT - PHOTO-SILHOUETTE RECONSTRUCTION (LOCAL, NOT MESHY)'
+}
+Bake check OK
+== check-bake
+
+{
+  points: 66000,
+  bytes: 660000,
+  kinds: { surface: 62040, rim: 2851, lens: 1109 },
+  quantRange: [ 0, 65535 ],
+  label: 'PORTRAIT - PHOTO-SILHOUETTE RECONSTRUCTION (LOCAL, NOT MESHY)'
+}
+Bake check OK
+== build
+transforming...
+✓ 6 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.95 kB │ gzip:   0.54 kB
+dist/assets/index-ixKOV7Sb.css    3.09 kB │ gzip:   1.37 kB
+dist/assets/index-DA8o_-Ov.js   480.98 kB │ gzip: 123.08 kB
+✓ built in 2.28s
+== test:fixture
+
+test/test-bust.glb 376900 bytes
+Glasses: centre (0.000, 0.620), lensR 0.090, spacing 0.200, tilt 0.00 deg, faceZ 0.460; removed 0 native points
+Wrote 66000 dots (660000 bytes) to public/assets/test, extent 1.8789

@@ -84,7 +84,7 @@ for i, y in enumerate(yrows):
         hw_map = np.maximum(hairW, side)
         if hw_map.max() > 0:
             s = 0.82 * (X - 1000) + 0.57 * (y - 150)                                                   # strands run up/right (photo)
-            relief = 2.6 * np.sin(2 * np.pi * s / 40.0 + ph[0] + 1.5 * np.sin(2 * np.pi * (0.57 * (X - 1000) - 0.82 * (y - 150)) / 130)) + 2.0 * np.sin(2 * np.pi * (0.57 * (X - 1000) - 0.82 * (y - 150)) / 90 + ph[1])
+            relief = 3.6 * np.sin(2 * np.pi * s / 40.0 + ph[0] + 1.5 * np.sin(2 * np.pi * (0.57 * (X - 1000) - 0.82 * (y - 150)) / 130)) + 2.4 * np.sin(2 * np.pi * (0.57 * (X - 1000) - 0.82 * (y - 150)) / 90 + ph[1])
             d = np.abs(0.82 * (X - 960) + 0.57 * (y - 200) + 0.0) / 1.0                              # side-part line (approx.) through (960,200)
             part = -6.0 * np.exp(-((0.57 * (X - 960) - 0.82 * (y - 200) - 20) ** 2) / (2 * 9.0 ** 2)) * np.clip((Y_HAIRLINE - y + 40) / 60, 0, 1)
             fh = fh + hw_map * (relief + part) / hwH[yi]

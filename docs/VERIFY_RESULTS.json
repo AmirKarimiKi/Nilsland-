@@ -1,0 +1,41 @@
+{
+  "date": "2026-10-25T16:19:14.234Z",
+  "env": "headless Chromium, SwiftShader (software GL) - not GPU",
+  "results": [
+    {
+      "name": "loader shows percentage then completes",
+      "ok": true,
+      "detail": "[\"0%\",\"100%\"]"
+    },
+    {
+      "name": "missing asset shows explicit error state",
+      "ok": true,
+      "detail": "PORTRAIT-ASSET FEHLT — public/assets/portrait-points.bin wur"
+    },
+    {
+      "name": "reduced motion: intro skipped (uIntro=1), no sweep, no console errors",
+      "ok": true,
+      "detail": "intro=1 sweep=-9 errors=0"
+    },
+    {
+      "name": "normal motion: intro plays then completes",
+      "ok": true,
+      "detail": "uIntro 0.009 -> 1"
+    },
+    {
+      "name": "cursor movement changes the rendering (light/head turn)",
+      "ok": true,
+      "detail": "png bytes 687019/686933"
+    },
+    {
+      "name": "touch: tap is handled, mobile uses reduced dots",
+      "ok": true,
+      "detail": "dots=36000 buffer=675x1461"
+    },
+    {
+      "name": "context loss shows a message, restore resumes rendering",
+      "ok": true,
+      "detail": "WEBGL-KONTEXT VERLOREN — warte auf Wiede -> PORTRAIT - PHOTO-SILHOUETTE RE"
+    }
+  ]
+}

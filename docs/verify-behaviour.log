@@ -1,0 +1,7 @@
+PASS loader shows percentage then completes ["0%","100%"]
+PASS missing asset shows explicit error state PORTRAIT-ASSET FEHLT — public/assets/portrait-points.bin wur
+PASS reduced motion: intro skipped (uIntro=1), no sweep, no console errors intro=1 sweep=-9 errors=0
+PASS normal motion: intro plays then completes uIntro 0.009 -> 1
+PASS cursor movement changes the rendering (light/head turn) png bytes 687019/686933
+PASS touch: tap is handled, mobile uses reduced dots dots=36000 buffer=675x1461
+PASS context loss shows a message, restore resumes rendering WEBGL-KONTEXT VERLOREN — warte auf Wiede -> PORTRAIT - PHOTO-SILHOUETTE RE

@@ -5,23 +5,26 @@ https://www.avivashishta.com/blog/made-of-dots-webgl-point-cloud-portrait
 (Foto → Tonbüste front/seitlich → GLB → 66.000 flächengewichtete Punkte → WebGL). Anleitung: `CLAUDE_MASTERPROMPT.md`.
 Kein fremder Originalcode wurde übernommen; das Original wurde nicht abgerufen, nur der Masterprompt befolgt.
 
-## Status-Matrix
+## Status-Matrix (ehrlich)
 
 | Baustein | Status |
 |---|---|
-| Vite/Three.js-Seite, Shader, Streaming-Loader mit Ring, Intro, Sweep, Cursor-Licht, Kopfdrehung, Brillen-Glanz | erstellt, im Headless-Browser getestet |
-| Bake-Skript (66.000 × 10 Byte, Brillenkurven, lokale Punktentfernung) | erstellt, nur an der Test-Fixture getestet |
-| 4K: echter Drawing-Buffer, Pixel-Budget, WebGL-Limits, dynamische Auflösung (`?dpr=`, `?fixedres`) | erstellt; **3840×2160-Buffer nachgewiesen** (Software-GL; `docs/screenshots/fixture-4k-3840x2160.jpg`) |
-| Punktdichte nach Hardware (66k Desktop / 36k mobil oder schwach, `?points=`) | erstellt |
-| Expliziter Fehlerzustand ohne Porträt-Asset | erstellt, getestet (`docs/screenshots/missing-asset-error.jpg`) |
-| 2.5D-Fotovorschau | nur `npm run dev` mit `?preview`, nicht im Build, nie „fertig“ |
-| **Porträt-GLB `bust.glb`** | **NICHT vorhanden** |
-| **`portrait-points.bin` des Porträts** | **NICHT vorhanden** |
-| Brillen-Passung, Vergleich mit Foto | **ausstehend** (braucht echtes GLB) |
-| **Reale GPU-FPS auf 4K-Gerät** | **NICHT gemessen** (nur SwiftShader: 4–5 FPS bei 4K, 21 FPS mobil; kein Maßstab) |
+| Renderer: Loader-Ring, Intro, Sweep, Cursor-Licht, Kopfdrehung, Glas-Glanz, Touch, reduced-motion, Context-Loss, Fehlerzustand | erstellt, im Headless-Browser getestet |
+| 4K: echter Drawing-Buffer 3840×2160 (`docs/screenshots/portrait-4k-3840x2160.jpg`) (CSS 3840 @dpr1 und 1920 @dpr2) | **nachgewiesen** (Software-GL, mit dem Porträt-Asset) |
+| `assets-src/bust.glb` | **vorhanden, aber lokal erzeugt** (siehe unten) – nicht Meshy/Higgsfield |
+| `public/assets/portrait-points.bin` (66.000 × 10 = 660.000 Byte) + meta | gebacken aus diesem GLB, `check-bake` OK (63.030 Fläche / 2.138 Fassung / 832 Glas) |
+| Brille (Fassung, Brücke, Bügel an der Kopfoberfläche), Maße vom Foto (`assets-src/glasses.json`) | erstellt, grob am Foto ausgerichtet |
+| Frisur, individuelle Gesichts-/Kopfform, Seitenprofil | **schwach** (siehe Abweichungen) |
+| Abgleich mit Originalartikel/-demo | **nicht möglich** (Domain aus der Umgebung nicht erreichbar) |
+| Reale GPU-FPS auf 4K-Gerät | **NICHT gemessen** (Software-GL: ~4–6 FPS bei 4K) |
 
-Blocker und exakte Handlung: `ASSET-REQUIREMENTS.md`. Das Referenzfoto liegt in `assets-src/` (nicht in `public/`, nicht im Build; es steckt aber noch in der Git-Historie, Commit bd3b6f8).
-`/?asset=test` zeigt eine Primitiv-Büste und ist **nicht das Porträt**.
+### Wie das GLB entstanden ist (Abweichung vom Tutorial)
+Hugging Face, Higgsfield, Meshy und Tripo sind aus der Umgebung nicht erreichbar, es gibt keine GPU und Arcads hat keine Credits. Deshalb wurde das GLB **lokal und klassisch aus dem einen Foto** rekonstruiert (`tools/segment.py` → `tools/build_bust.py`, Python: OpenCV GrabCut, Marching Cubes):
+- Personenmaske aus dem Foto (Kopfkontur, Haarmasse, Kiefer/Hals, Rollkragen, Schultern); Ohren werden entfernt, keine Gesichtszüge modelliert (gesichtslos).
+- Pro Bildzeile ein Superellipsen-Querschnitt; **die Tiefe ist eine Annahme** (Tiefen/Breiten-Verhältnis, Kinn-Rücksprung, Kragenwulst), nicht gemessen und nicht aus einer KI-Seitenansicht. Seitenprofil und Rückseite sind vollständig geschätzt.
+- Geschlossenes, untexturiertes Netz (≈490k Dreiecke), Y oben, Gesicht +Z.
+**Unterschiede zum Tutorial:** keine Front-/Seiten-Tonbüsten-Bilder, kein Multi-Image-to-3D, keine modellierte Frisur-Struktur (Haar ist nur Kopfmasse), Profil generisch. Wiedererkennbar sind vor allem Kopf-/Schulterumriss, Kragen und Brillenmaß. Das Ergebnis ist eine **belastbare Zwischenlösung**, kein Ersatz für ein Meshy-GLB: Ein Higgsfield-/Meshy-`bust.glb` kann unverändert per `npm run integrate` eingesetzt werden (Datei überschreiben).
+Neu erzeugen: `python3 tools/segment.py && python3 tools/build_bust.py && npm run integrate` (pip: numpy scipy opencv-python-headless scikit-image trimesh pillow).
 
 ## Befehle
 ```

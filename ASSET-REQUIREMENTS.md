@@ -1,4 +1,4 @@
-# Fehlende Assets — exakter Blocker und Handlung
+# Assets — exakter Blocker und Handlung
 
 **Blocker (einziger):** Es steht kein Image-to-3D-/Bild-Dienst zur Verfügung.
 - Keine Higgsfield-/Tripo-/Meshy-Integration in der Sitzung; keine API-Schlüssel in der Umgebung.
@@ -37,3 +37,6 @@ Foto-SHA-256: `6b57a99f26232e5ebe9b710c52ac9a76a9428f6dc5383aa29d943c2b7df0d832`
 Datenschutz: `assets-src/reference-photo.jpg` ist nicht in `public/` und nicht im Build, steckt aber noch in der Git-Historie (Commit bd3b6f8). Entfernen erfordert einen Force-Push und erfolgt nur nach ausdrücklicher Freigabe.
 
 Nicht abgeglichen: Artikel und Demo (`avivashishta.com`) sind aus dieser Umgebung nicht erreichbar (DNS-Fehler). Der visuelle Abgleich mit der Originaldemo steht daher aus; Stilparameter stammen aus Masterprompt und korrigierter Spezifikation.
+
+## Aktueller Stand des GLB
+`assets-src/bust.glb` ist ein **lokal aus dem Foto rekonstruiertes** Silhouetten-Modell (siehe README). Für die tutorialtreue Variante (Front-/Seiten-Tonbüste → Meshy) bleibt weiterhin die externe Handlung oben offen; das Ergebnis ersetzt `assets-src/bust.glb`, danach `npm run integrate`.

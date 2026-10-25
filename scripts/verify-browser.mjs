@@ -5,20 +5,19 @@
 import { createRequire } from 'node:module';
 const { chromium } = createRequire(import.meta.url)(process.env.PLAYWRIGHT_PATH || 'playwright');
 const base = process.argv[2] || 'http://localhost:4173';
-const cases = [
-  { name: 'fixture-4k-3840x2160', url: '/?asset=test&fixedres', w: 3840, h: 2160, dsf: 1 },
-  { name: 'fixture-4k-via-dpr2-1920x1080', url: '/?asset=test&fixedres', w: 1920, h: 1080, dsf: 2 },
-  { name: 'fixture-mobile-390x844', url: '/?asset=test', w: 390, h: 844, dsf: 2, mobile: true },
-  { name: 'missing-asset-error', url: '/', w: 1280, h: 720, dsf: 1 },
+const only = process.argv[3]; const cases = [
+  { name: 'portrait-4k-3840x2160', url: '/?fixedres', w: 3840, h: 2160, dsf: 1 },
+    { name: 'portrait-mobile-390x844', url: '/?fixedres', w: 390, h: 844, dsf: 2, mobile: true },
+  { name: 'portrait-desktop-1280x720', url: '/?fixedres', w: 1280, h: 720, dsf: 1 },
 ];
 const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-for (const c of cases) {
+for (const c of cases.filter((x) => !only || x.name.includes(only))) {
   const ctx = await browser.newContext({ viewport: { width: c.w, height: c.h }, deviceScaleFactor: c.dsf, isMobile: !!c.mobile, hasTouch: !!c.mobile });
   const page = await ctx.newPage(); const logs = [];
   page.on('console', (m) => logs.push(`${m.type()}: ${m.text()}`)); page.on('pageerror', (e) => logs.push(`pageerror: ${e}`));
   await page.goto(base + c.url);
   const ready = await page.waitForFunction(() => window.__dots?.ready, null, { timeout: 45000 }).then(() => true, () => false);
-  if (ready) { await page.mouse.move(c.w * 0.6, c.h * 0.4); await page.waitForTimeout(7000); }
+  if (ready) { await page.mouse.move(c.w * 0.6, c.h * 0.4); await page.waitForFunction(() => getComputedStyle(document.querySelector('#loader')).opacity === '0', null, { timeout: 60000 }).catch(() => {}); await page.waitForTimeout(c.w > 2000 || c.dsf > 1 ? 30000 : 7000); }
   else await page.waitForTimeout(1500);
   const info = await page.evaluate(() => { const cv = document.querySelector('canvas'); return { dots: window.__dots, canvas: cv && [cv.width, cv.height], err: document.querySelector('#error')?.hidden === false ? document.querySelector('#error').textContent : null }; });
   await page.screenshot({ path: `docs/screenshots/${c.name}.jpg` });

@@ -1,0 +1,24 @@
+{
+  "label": "PORTRAIT - PHOTO-SILHOUETTE RECONSTRUCTION (LOCAL, NOT MESHY)",
+  "count": 66000,
+  "stride": 10,
+  "bytes": 660000,
+  "extent": 1.4841958345788893,
+  "size": [
+    1.4841958345788893,
+    1.4291139954065228,
+    0.7955914027772913
+  ],
+  "center": [
+    0.05588769716534836,
+    0.7174570999242432,
+    -0.036487098084937164
+  ],
+  "kinds": {
+    "surface": 62040,
+    "rim": 2851,
+    "lens": 1109
+  },
+  "removedNative": 189,
+  "source": "bust.glb"
+}

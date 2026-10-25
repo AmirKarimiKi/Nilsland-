@@ -60,15 +60,19 @@ if (sum <= 0) throw new Error('No sampleable mesh surface');
 const cumulative = []; areas.reduce((acc, x) => (cumulative.push(acc + x), acc + x), 0);
 const samplers = meshes.map(geo => new MeshSurfaceSampler(new THREE.Mesh(geo, new THREE.MeshBasicMaterial())).setRandomGenerator(sampleRandom).build());
 
-const glassesBudget = withGlasses ? Math.round(COUNT * 0.045) : 0; // rim ~3.2%, lens ~1.3%
+const glassesBudget = withGlasses ? Math.round(COUNT * 0.06) : 0; // rim ~3.2%, lens ~1.3%
 const rimBudget = Math.round(glassesBudget * 0.72), lensBudget = glassesBudget - rimBudget;
 const surfaceTarget = COUNT - glassesBudget;
 
 let surf = [];
 const v = new THREE.Vector3(), n = new THREE.Vector3();
+// The cut-off base of a bust is never visible; skip down-facing samples in the lowest 1.5% of the height.
+const mb = new THREE.Box3(); meshes.forEach(g => { g.computeBoundingBox(); mb.union(g.boundingBox); });
+const isCap = (p, nn) => nn.y < -0.85 && p.y < mb.min.y + (mb.max.y - mb.min.y) * 0.015;
 for (let i = 0; i < surfaceTarget; i++) {
   const r = rand() * sum, j = Math.max(0, cumulative.findIndex(x => r <= x));
   samplers[j].sample(v, n);
+  if (isCap(v, n)) { i--; continue; }
   surf.push({ p: v.clone(), n: n.clone(), kind: 0 });
 }
 
@@ -80,7 +84,9 @@ let removed = 0, rim = [], lens = [];
 if (withGlasses) {
   // Defaults measured on reference-photo.jpg (round panto frames), as fractions of the head+shoulders bbox of the photo framing:
   // eye line 0.36 of bbox height below the top, lens radius 0.10 of bbox width, centre spacing 1.8 x lens radius. Verify/tune with --glasses.
-  const [cxA, cyA, lensRA, spacingA, dzA] = (flag('glasses', '') || '').split(',').map(Number);
+  // Calibration file (model units) written after matching the glasses to the photo; --glasses overrides it.
+  let cfg = ''; try { const j = JSON.parse((await fs.readFile('assets-src/glasses.json', 'utf8'))); cfg = [j.cx, j.cy, j.lensR, j.spacing, j.dz].join(','); } catch { /* optional */ }
+  const [cxA, cyA, lensRA, spacingA, dzA] = (flag('glasses', cfg) || '').split(',').map(Number);
   const cx = Number.isFinite(cxA) ? cxA : centre0.x;
   const cy = Number.isFinite(cyA) ? cyA : box.max.y - size.y * 0.36;
   const lensR = Number.isFinite(lensRA) ? lensRA : size.x * 0.10;
@@ -98,7 +104,20 @@ if (withGlasses) {
   }
   // Bridge arc and temple arms.
   const bridge = Array.from({ length: 24 }, (_, k) => { const t = k / 23, x = cx - spacing / 2 + lensR + t * (spacing - 2 * lensR); return new THREE.Vector3(x, cy + lensR * 0.28 + Math.sin(t * Math.PI) * lensR * 0.12, zAt(x)); });
-  const temples = [-1, 1].map(side => Array.from({ length: 40 }, (_, k) => { const t = k / 39, x = cx + side * (spacing / 2 + lensR + t * lensR * 1.6); return new THREE.Vector3(x, cy + lensR * 0.55 - t * lensR * 0.1, zAt(x) - t * size.z * 0.12); }));
+  // Temple arms run from the lens edge back along the head surface (side surface x at each depth is read from the sampled points).
+  const band = surf.filter(q => Math.abs(q.p.y - cy) < lensR * 0.35);
+  const sideX = (side, z) => { let best = 0; for (const q of band) { const dx = (q.p.x - cx) * side; if (dx > best && Math.abs(q.p.z - z) < size.z * 0.02) best = dx; } return best; };
+  const zFront = faceZ + dz, zBack = box.min.z + size.z * 0.5 - size.z * 0.02;
+  const temples = [-1, 1].map(side => {
+    const x0 = spacing / 2 + lensR, pts = [];
+    for (let k = 0; k < 48; k++) {
+      const t = k / 47, z = zFront + (zBack - zFront) * t, sx = sideX(side, z);
+      const xs = sx > 0 ? Math.min(sx + dz * 0.5, Math.max(x0, sx + dz * 0.5)) : x0;
+      const x = x0 + (xs - x0) * Math.min(1, t * 4);   // blend from the lens corner to the head side
+      pts.push(new THREE.Vector3(cx + side * Math.max(x, Math.min(x0, xs)), cy + lensR * 0.55 - t * lensR * 0.08, z));
+    }
+    return pts;
+  });
   const rimLine = [...curves.map(cu => cu.pts), bridge, ...temples];
   // Remove native points that overlap the frame (local only, radius < rim thickness * 1.8).
   const rimR = lensR * 0.075, kill = rimR * 1.8;
@@ -106,10 +125,13 @@ if (withGlasses) {
   const before = surf.length;
   surf = surf.filter(s => !(Math.abs(s.p.y - cy) < lensR * 1.4 && flat.some(q => q.distanceToSquared(s.p) < kill * kill)));
   removed = before - surf.length;
+  const rimLen = rimLine.map(l => l.reduce((acc, q, k) => acc + (k ? q.distanceTo(l[k - 1]) : 0), 0)), totalLen = rimLen.reduce((x, y) => x + y, 0);
   // Rim points: distributed along the curve length with a thin tube cross-section.
   const lens0 = curves.map(cu => cu.pts);
   for (let i = 0; i < rimBudget; i++) {
-    const line = rimLine[Math.floor(rand() * rimLine.length)], q = line[Math.floor(rand() * line.length)];
+    // choose a curve proportionally to its arc length so the bridge/temples are not over-dense
+    let r = rand() * totalLen, li = 0; while (li < rimLen.length - 1 && r > rimLen[li]) { r -= rimLen[li]; li++; }
+    const line = rimLine[li], q = line[Math.floor(rand() * line.length)];
     const o = new THREE.Vector3(rand() - .5, rand() - .5, rand() - .5).multiplyScalar(rimR * 1.6);
     const nn = o.clone().normalize().multiplyScalar(.6).add(new THREE.Vector3(0, 0, .8)).normalize();
     rim.push({ p: q.clone().add(o), n: nn, kind: 1 });

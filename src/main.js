@@ -47,7 +47,7 @@ const dpr = () => {
 const buffer = { w: 0, h: 0, dpr: 0 };
 function applyResolution() {
   const d = dpr(); renderer.setPixelRatio(d); renderer.setSize(innerWidth, innerHeight);
-  material.uniforms.uRatio.value = d;
+  material.uniforms.uRatio.value = renderer.domElement.height / (mobile ? 1000 : 800);   // dot size follows the buffer height, so 4K looks like 720p, only sharper
   buffer.w = gl.drawingBufferWidth; buffer.h = gl.drawingBufferHeight; buffer.dpr = d;
   if (window.__dots) window.__dots.buffer = { ...buffer, css: [innerWidth, innerHeight], devicePixelRatio, maxDim };
   console.info(`[dots] drawing buffer ${buffer.w}x${buffer.h} (CSS ${innerWidth}x${innerHeight}, dpr ${d.toFixed(3)}, devicePixelRatio ${devicePixelRatio}, scale ${resScale.toFixed(2)}, max ${maxDim})`);
@@ -198,7 +198,7 @@ const material = new THREE.ShaderMaterial({
 
       float base = .40;
       float size = 2.2 + aSeed * 2.6;
-      if (aKind > .5 && aKind < 1.5) { base = .62; size += .5; }          // spectacle rim: slightly denser/brighter
+      if (aKind > .5 && aKind < 1.5) { base = .78; size += .5; }          // spectacle rim: slightly denser/brighter
       if (aKind > 1.5) {                                                // lens: very faint, a slow glint passes over it
         float glint = exp(-pow((world.x - uGlint) * 5., 2.));
         base = .10 + glint * .55; size = 2.0; vGlint = glint;
@@ -206,7 +206,7 @@ const material = new THREE.ShaderMaterial({
       vBright = min(1.15, (base + lit * .75 + rim * .10 + sweep * .55) * (.86 + aSeed * .28));
       vec4 view = viewMatrix * world;
       gl_Position = projectionMatrix * view;
-      gl_PointSize = clamp((size + sweep * 1.0) * uRatio * uPointScale * 5. / -view.z, 1., 10.);
+      gl_PointSize = clamp((size + sweep * 1.0) * uRatio * uPointScale * 5. / -view.z, 1., 10. * max(1., uRatio));
     }`,
   fragmentShader: /* glsl */`
     precision mediump float; varying float vBright; varying float vSeed; varying float vGlint;
